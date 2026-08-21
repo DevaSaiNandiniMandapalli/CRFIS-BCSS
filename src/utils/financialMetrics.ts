@@ -1,4 +1,5 @@
 import type { Asset } from '../types/asset'
+import type { Audit } from '../types/audit'
 import type { InsurancePolicy } from '../types/insurance'
 import type { Remediation } from '../types/remediation'
 import type { Risk } from '../types/risk'
@@ -148,6 +149,14 @@ export function calculateTotalScenarioImpact(
   return scenarios.reduce(
     (total, scenario) =>
       total + scenario.estimatedImpact,
+    0,
+  )
+}
+export function calculateTotalAuditFindings(
+  audits: Audit[],
+): number {
+  return audits.reduce(
+    (total, audit) => total + audit.findings,
     0,
   )
 }

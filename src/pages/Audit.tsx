@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { demoAudits } from '../data/demoAudits'
+import { calculateTotalAuditFindings } from '../utils/financialMetrics'
 
 const statuses = [
   'All Statuses',
@@ -80,10 +81,8 @@ function Audit() {
 
   const totalAudits = demoAudits.length
 
-  const totalFindings = demoAudits.reduce(
-    (total, audit) => total + audit.findings,
-    0,
-  )
+  const totalFindings =
+  calculateTotalAuditFindings(demoAudits)
 
   const completedAudits = demoAudits.filter(
     (audit) => audit.status === 'Completed',
