@@ -8,6 +8,7 @@ import InsuranceRegister from './pages/InsuranceRegister'
 import Reports from './pages/Reports'
 import AIAnalyst from './pages/AIAnalyst'
 import Audit from './pages/Audit'
+import Settings from './pages/Settings'
 
 const navigation = [
   'Overview',
@@ -334,6 +335,8 @@ function App() {
   <AIAnalyst />
 ) : activePage === 'Audit' ? (
   <Audit />
+) : activePage === 'Settings' ? (
+  <Settings />
 ) : (
             <section className="placeholder-page">
               <span className="status-pill">
