@@ -21,7 +21,13 @@ export interface InsurancePolicy {
   premium: number
   expirationDate: string
   status: InsuranceStatus
+
+  // Existing display count.
   coveredAssets: number
+
+  // Actual relationships to the Asset Register.
+  assetIds: string[]
+
   notes: string
   isDemo: true
 }

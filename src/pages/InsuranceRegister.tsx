@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { demoInsurance } from '../data/demoInsurance'
+import { demoAssets } from '../data/demoAssets'
 import type {
   InsuranceCoverageType,
   InsuranceStatus,
@@ -18,15 +19,25 @@ function InsuranceRegister() {
   const [coverageType, setCoverageType] =
     useState<InsuranceCoverageType | 'All'>('All')
 
+  const assetById = useMemo(
+    () => new Map(demoAssets.map((asset) => [asset.id, asset])),
+    [],
+  )
+
   const filteredPolicies = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return demoInsurance.filter((policy) => {
+      const assetNames = policy.assetIds
+        .map((assetId) => assetById.get(assetId)?.name ?? assetId)
+        .join(' ')
+
       const matchesSearch =
         !query ||
         policy.policyNumber.toLowerCase().includes(query) ||
         policy.provider.toLowerCase().includes(query) ||
-        policy.coverageType.toLowerCase().includes(query)
+        policy.coverageType.toLowerCase().includes(query) ||
+        assetNames.toLowerCase().includes(query)
 
       const matchesStatus =
         status === 'All' || policy.status === status
@@ -37,7 +48,7 @@ function InsuranceRegister() {
 
       return matchesSearch && matchesStatus && matchesCoverage
     })
-  }, [search, status, coverageType])
+  }, [search, status, coverageType, assetById])
 
   const activeCount = demoInsurance.filter(
     (policy) => policy.status === 'Active',
@@ -145,7 +156,7 @@ function InsuranceRegister() {
 
           <input
             type="search"
-            placeholder="Search policies, providers, coverage..."
+            placeholder="Search policies, providers, coverage, assets..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             aria-label="Search insurance policies"
@@ -225,7 +236,7 @@ function InsuranceRegister() {
                 <th>Deductible</th>
                 <th>Expiration</th>
                 <th>Status</th>
-                <th>Assets</th>
+                <th>Covered Assets</th>
               </tr>
             </thead>
 
@@ -263,7 +274,22 @@ function InsuranceRegister() {
                     </span>
                   </td>
 
-                  <td>{policy.coveredAssets}</td>
+                  <td>
+                    <div className="risk-name">
+                      <strong>
+                        {policy.assetIds.length} assets
+                      </strong>
+
+                      <span>
+                        {policy.assetIds
+                          .map(
+                            (assetId) =>
+                              assetById.get(assetId)?.name ?? assetId,
+                          )
+                          .join(', ')}
+                      </span>
+                    </div>
+                  </td>
                 </tr>
               ))}
 
@@ -314,7 +340,9 @@ function InsuranceRegister() {
 
         <div className="intelligence-metric">
           <span>DEMO TOTAL COVERAGE</span>
-          <strong>{currencyFormatter.format(totalCoverage)}</strong>
+          <strong>
+            {currencyFormatter.format(totalCoverage)}
+          </strong>
         </div>
       </div>
     </section>
