@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import './App.css'
 
 const navigation = [
@@ -38,6 +39,20 @@ const risks = [
 ]
 
 function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('crfis-theme')
+
+    if (saved) {
+      return saved === 'dark'
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
+    localStorage.setItem('crfis-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
   return (
     <div className="crfis-app">
       <aside className="sidebar">
@@ -86,9 +101,14 @@ function App() {
             <button className="icon-button" type="button" aria-label="Notifications">
               ◌
             </button>
-            <button className="theme-button" type="button" aria-label="Toggle theme">
-              ◐
-            </button>
+            <button
+  className="theme-button"
+  type="button"
+  aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+  onClick={() => setDarkMode((current) => !current)}
+>
+  {darkMode ? '☀' : '◐'}
+</button>
             <div className="profile">
               <div className="avatar">CS</div>
               <div>
