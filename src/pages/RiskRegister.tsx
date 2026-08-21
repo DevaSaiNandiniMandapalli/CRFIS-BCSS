@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { demoAssets } from '../data/demoAssets'
 import { demoRisks } from '../data/demoRisks'
+import {
+  calculateTotalExposure,
+} from '../utils/financialMetrics'
 import type {
   RiskCategory,
   RiskSeverity,
@@ -80,10 +83,8 @@ function RiskRegister() {
     assetById,
   ])
 
-  const totalExposure = demoRisks.reduce(
-    (total, risk) => total + risk.exposure,
-    0,
-  )
+  const totalExposure =
+    calculateTotalExposure(demoRisks)
 
   const criticalCount = demoRisks.filter(
     (risk) => risk.severity === 'Critical',
@@ -116,6 +117,7 @@ function RiskRegister() {
         <div>
           <div className="module-title-row">
             <h2>Risk Register</h2>
+
             <span className="demo-badge">
               DEMO DATA
             </span>
@@ -162,9 +164,11 @@ function RiskRegister() {
 
         <article className="risk-kpi exposure-kpi">
           <span>DEMO EXPOSURE</span>
+
           <strong>
             {currencyFormatter.format(totalExposure)}
           </strong>
+
           <small>
             Fictional placeholder value
           </small>
@@ -359,9 +363,7 @@ function RiskRegister() {
             <tbody>
               {filteredRisks.map((risk) => {
                 const linkedAsset =
-                  assetById.get(
-                    risk.assetId,
-                  )
+                  assetById.get(risk.assetId)
 
                 return (
                   <tr key={risk.id}>
