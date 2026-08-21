@@ -249,22 +249,31 @@ function Overview() {
             From technical findings to financial decisions.
           </h2>
 
-          <p>
-            CRFIS connects cybersecurity findings, asset criticality,
-            probability, financial loss, remediation cost, and business
-            context into one decision-ready view.
+                    <p>
+            Current demo modeling indicates a total exposure of{' '}
+            <strong>{formatCurrency(totalExposure)}</strong>, with{' '}
+            <strong>{criticalRisks}</strong> critical risks requiring
+            attention.
           </p>
 
           <p>
-            Current demo modeling indicates{' '}
-            <strong>
-              {formatCurrency(remediationOpportunity)}
-            </strong>{' '}
-            of potential exposure reduction against{' '}
-            <strong>
-              {formatCurrency(remediationCost)}
-            </strong>{' '}
-            of illustrative remediation cost.
+            The modeled remediation portfolio represents{' '}
+            <strong>{formatCurrency(remediationOpportunity)}</strong> of
+            potential exposure reduction against an estimated implementation
+            cost of{' '}
+            <strong>{formatCurrency(remediationCost)}</strong>.
+          </p>
+
+          <p>
+            That produces an illustrative net benefit of{' '}
+            <strong>{formatCurrency(netRemediationBenefit)}</strong> and a{' '}
+            <strong>{reductionToCostRatio.toFixed(2)}x</strong> reduction-to-cost
+            ratio.
+          </p>
+
+          <p className="demo-disclaimer">
+            These figures are demonstration calculations only and are not
+            production financial, actuarial, security, or risk assessments.
           </p>
         </div>
       </section>
