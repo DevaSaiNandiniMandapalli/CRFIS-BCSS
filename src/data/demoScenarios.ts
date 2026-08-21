@@ -7,6 +7,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Ransomware',
     description:
       'Demonstration scenario representing a major ransomware event affecting critical enterprise infrastructure.',
+    riskId: 'RISK-001',
+    assetId: 'ASSET-001',
     severity: 'Critical',
     probability: 'Medium',
     estimatedImpact: 1850000,
@@ -21,6 +23,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Data Breach',
     description:
       'Demonstration scenario representing unauthorized access to sensitive customer information.',
+    riskId: 'RISK-003',
+    assetId: 'ASSET-003',
     severity: 'Critical',
     probability: 'Medium',
     estimatedImpact: 1420000,
@@ -35,6 +39,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Business Interruption',
     description:
       'Demonstration scenario representing an extended disruption to the enterprise payment platform.',
+    riskId: 'RISK-005',
+    assetId: 'ASSET-004',
     severity: 'High',
     probability: 'Low',
     estimatedImpact: 980000,
@@ -49,6 +55,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Cloud Outage',
     description:
       'Demonstration scenario representing a significant production cloud service interruption.',
+    riskId: 'RISK-004',
+    assetId: 'ASSET-005',
     severity: 'High',
     probability: 'Medium',
     estimatedImpact: 760000,
@@ -63,6 +71,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Third Party',
     description:
       'Demonstration scenario representing a major outage affecting a critical third-party provider.',
+    riskId: 'RISK-005',
+    assetId: 'ASSET-004',
     severity: 'Medium',
     probability: 'Medium',
     estimatedImpact: 520000,
@@ -77,6 +87,8 @@ export const demoScenarios: Scenario[] = [
     category: 'Insider Threat',
     description:
       'Demonstration scenario representing misuse of privileged access within corporate systems.',
+    riskId: 'RISK-006',
+    assetId: 'ASSET-006',
     severity: 'High',
     probability: 'Low',
     estimatedImpact: 690000,

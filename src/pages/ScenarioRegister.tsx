@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { demoScenarios } from '../data/demoScenarios'
+import { demoRisks } from '../data/demoRisks'
+import { demoAssets } from '../data/demoAssets'
 import type {
   ScenarioCategory,
   ScenarioSeverity,
@@ -21,15 +23,30 @@ function ScenarioRegister() {
   const [category, setCategory] =
     useState<ScenarioCategory | 'All'>('All')
 
+  const riskById = useMemo(
+    () => new Map(demoRisks.map((risk) => [risk.id, risk])),
+    [],
+  )
+
+  const assetById = useMemo(
+    () => new Map(demoAssets.map((asset) => [asset.id, asset])),
+    [],
+  )
+
   const filteredScenarios = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return demoScenarios.filter((scenario) => {
+      const relatedRisk = riskById.get(scenario.riskId)
+      const relatedAsset = assetById.get(scenario.assetId)
+
       const matchesSearch =
         !query ||
         scenario.name.toLowerCase().includes(query) ||
         scenario.description.toLowerCase().includes(query) ||
-        scenario.owner.toLowerCase().includes(query)
+        scenario.owner.toLowerCase().includes(query) ||
+        relatedRisk?.risk.toLowerCase().includes(query) ||
+        relatedAsset?.name.toLowerCase().includes(query)
 
       const matchesSeverity =
         severity === 'All' || scenario.severity === severity
@@ -47,7 +64,14 @@ function ScenarioRegister() {
         matchesCategory
       )
     })
-  }, [search, severity, status, category])
+  }, [
+    search,
+    severity,
+    status,
+    category,
+    riskById,
+    assetById,
+  ])
 
   const criticalCount = demoScenarios.filter(
     (scenario) => scenario.severity === 'Critical',
@@ -152,7 +176,7 @@ function ScenarioRegister() {
 
           <input
             type="search"
-            placeholder="Search scenarios, descriptions, owners..."
+            placeholder="Search scenarios, risks, assets, owners..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             aria-label="Search scenarios"
@@ -243,6 +267,8 @@ function ScenarioRegister() {
             <thead>
               <tr>
                 <th>Scenario</th>
+                <th>Related Risk</th>
+                <th>Asset</th>
                 <th>Category</th>
                 <th>Severity</th>
                 <th>Probability</th>
@@ -254,52 +280,75 @@ function ScenarioRegister() {
             </thead>
 
             <tbody>
-              {filteredScenarios.map((scenario) => (
-                <tr key={scenario.id}>
-                  <td>
-                    <div className="risk-name">
-                      <strong>{scenario.name}</strong>
-                      <span>{scenario.id}</span>
-                    </div>
-                  </td>
+              {filteredScenarios.map((scenario) => {
+                const relatedRisk = riskById.get(scenario.riskId)
+                const relatedAsset = assetById.get(scenario.assetId)
 
-                  <td>{scenario.category}</td>
+                return (
+                  <tr key={scenario.id}>
+                    <td>
+                      <div className="risk-name">
+                        <strong>{scenario.name}</strong>
+                        <span>{scenario.id}</span>
+                      </div>
+                    </td>
 
-                  <td>
-                    <span
-                      className={`risk-severity ${scenario.severity.toLowerCase()}`}
-                    >
-                      {scenario.severity}
-                    </span>
-                  </td>
+                    <td>
+                      <div className="risk-name">
+                        <strong>
+                          {relatedRisk?.risk ?? 'Unknown Risk'}
+                        </strong>
+                        <span>{scenario.riskId}</span>
+                      </div>
+                    </td>
 
-                  <td>{scenario.probability}</td>
+                    <td>
+                      <div className="risk-name">
+                        <strong>
+                          {relatedAsset?.name ?? 'Unknown Asset'}
+                        </strong>
+                        <span>{scenario.assetId}</span>
+                      </div>
+                    </td>
 
-                  <td className="financial-value">
-                    {currencyFormatter.format(
-                      scenario.estimatedImpact,
-                    )}
-                  </td>
+                    <td>{scenario.category}</td>
 
-                  <td>{scenario.businessImpact}</td>
+                    <td>
+                      <span
+                        className={`risk-severity ${scenario.severity.toLowerCase()}`}
+                      >
+                        {scenario.severity}
+                      </span>
+                    </td>
 
-                  <td>
-                    <span
-                      className={`risk-status ${scenario.status
-                        .toLowerCase()
-                        .replaceAll(' ', '-')}`}
-                    >
-                      {scenario.status}
-                    </span>
-                  </td>
+                    <td>{scenario.probability}</td>
 
-                  <td>{scenario.owner}</td>
-                </tr>
-              ))}
+                    <td className="financial-value">
+                      {currencyFormatter.format(
+                        scenario.estimatedImpact,
+                      )}
+                    </td>
+
+                    <td>{scenario.businessImpact}</td>
+
+                    <td>
+                      <span
+                        className={`risk-status ${scenario.status
+                          .toLowerCase()
+                          .replaceAll(' ', '-')}`}
+                      >
+                        {scenario.status}
+                      </span>
+                    </td>
+
+                    <td>{scenario.owner}</td>
+                  </tr>
+                )
+              })}
 
               {filteredScenarios.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={10}>
                     <div className="risk-empty-state">
                       <strong>
                         No scenarios match the current filters.
@@ -329,7 +378,9 @@ function ScenarioRegister() {
         <div className="intelligence-icon">↗</div>
 
         <div>
-          <span className="eyebrow">SCENARIO INTELLIGENCE</span>
+          <span className="eyebrow">
+            SCENARIO INTELLIGENCE
+          </span>
 
           <h2>
             Understand the financial consequences before an event
@@ -337,15 +388,17 @@ function ScenarioRegister() {
           </h2>
 
           <p>
-            CRFIS will eventually connect scenario probability,
-            affected assets, business interruption, recovery costs,
+            CRFIS connects scenario probability, affected assets,
+            related risks, business interruption, recovery costs,
             and financial impact into decision-ready analysis.
           </p>
         </div>
 
         <div className="intelligence-metric">
           <span>DEMO TOTAL IMPACT</span>
-          <strong>{currencyFormatter.format(totalImpact)}</strong>
+          <strong>
+            {currencyFormatter.format(totalImpact)}
+          </strong>
         </div>
       </div>
     </section>

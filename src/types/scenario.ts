@@ -19,6 +19,11 @@ export interface Scenario {
   name: string
   category: ScenarioCategory
   description: string
+
+  // Relationships to the existing CRFIS risk and asset registers.
+  riskId: string
+  assetId: string
+
   severity: ScenarioSeverity
   probability: string
   estimatedImpact: number
