@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import RiskRegister from './pages/RiskRegister'
+import AssetRegister from './pages/AssetRegister'
 
 const navigation = [
   'Overview',
@@ -312,8 +313,10 @@ function App() {
               </section>
             </>
           ) : activePage === 'Risk Register' ? (
-            <RiskRegister />
-          ) : (
+  <RiskRegister />
+) : activePage === 'Assets' ? (
+  <AssetRegister />
+) : (
             <section className="placeholder-page">
               <span className="status-pill">
                 <span className="status-dot" />
