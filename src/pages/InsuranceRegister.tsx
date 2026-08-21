@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { demoInsurance } from '../data/demoInsurance'
 import { demoAssets } from '../data/demoAssets'
+import { demoRisks } from '../data/demoRisks'
+import {
+  calculateTotalInsuranceCoverage,
+  calculateTotalInsurancePremium,
+  calculateTotalInsuranceDeductible,
+  calculateInsuranceCoverageGap,
+} from '../utils/financialMetrics'
 import type {
   InsuranceCoverageType,
   InsuranceStatus,
@@ -62,15 +69,17 @@ function InsuranceRegister() {
     (policy) => policy.status === 'Under Review',
   ).length
 
-  const totalCoverage = demoInsurance.reduce(
-    (total, policy) => total + policy.coverageLimit,
-    0,
-  )
+  const totalCoverage =
+    calculateTotalInsuranceCoverage(demoInsurance)
 
-  const totalPremium = demoInsurance.reduce(
-    (total, policy) => total + policy.premium,
-    0,
-  )
+  const totalPremium =
+    calculateTotalInsurancePremium(demoInsurance)
+
+  const totalDeductible =
+    calculateTotalInsuranceDeductible(demoInsurance)
+
+  const coverageGap =
+    calculateInsuranceCoverageGap(demoRisks, demoInsurance)
 
   const clearFilters = () => {
     setSearch('')
@@ -124,13 +133,17 @@ function InsuranceRegister() {
 
         <article className="risk-kpi">
           <span>TOTAL COVERAGE</span>
-          <strong>{currencyFormatter.format(totalCoverage)}</strong>
+          <strong>
+            {currencyFormatter.format(totalCoverage)}
+          </strong>
           <small>Fictional placeholder value</small>
         </article>
 
         <article className="risk-kpi exposure-kpi">
           <span>ANNUAL PREMIUM</span>
-          <strong>{currencyFormatter.format(totalPremium)}</strong>
+          <strong>
+            {currencyFormatter.format(totalPremium)}
+          </strong>
           <small>Fictional placeholder value</small>
         </article>
       </div>
@@ -325,23 +338,38 @@ function InsuranceRegister() {
         <div className="intelligence-icon">↗</div>
 
         <div>
-          <span className="eyebrow">INSURANCE INTELLIGENCE</span>
+          <span className="eyebrow">
+            INSURANCE INTELLIGENCE
+          </span>
 
           <h2>
             Compare insurance protection with financial exposure.
           </h2>
 
           <p>
-            CRFIS will eventually connect risk exposure, insurance
-            limits, deductibles, and residual risk to help leadership
-            understand potential coverage gaps.
+            CRFIS connects risk exposure, insurance limits,
+            deductibles, premiums, and residual exposure to help
+            leadership understand potential coverage gaps.
           </p>
         </div>
 
         <div className="intelligence-metric">
           <span>DEMO TOTAL COVERAGE</span>
+
           <strong>
             {currencyFormatter.format(totalCoverage)}
+          </strong>
+
+          <span>DEMO TOTAL DEDUCTIBLE</span>
+
+          <strong>
+            {currencyFormatter.format(totalDeductible)}
+          </strong>
+
+          <span>DEMO COVERAGE GAP</span>
+
+          <strong>
+            {currencyFormatter.format(coverageGap)}
           </strong>
         </div>
       </div>

@@ -69,6 +69,34 @@ export function calculateTotalInsuranceCoverage(
   )
 }
 
+export function calculateTotalInsurancePremium(
+  policies: InsurancePolicy[],
+): number {
+  return policies.reduce(
+    (total, policy) => total + policy.premium,
+    0,
+  )
+}
+
+export function calculateTotalInsuranceDeductible(
+  policies: InsurancePolicy[],
+): number {
+  return policies.reduce(
+    (total, policy) => total + policy.deductible,
+    0,
+  )
+}
+
+export function calculateInsuranceCoverageGap(
+  risks: Risk[],
+  policies: InsurancePolicy[],
+): number {
+  const exposure = calculateTotalExposure(risks)
+  const coverage = calculateTotalInsuranceCoverage(policies)
+
+  return Math.max(exposure - coverage, 0)
+}
+
 export function calculateAnnualizedLossExpectancy(
   risks: Risk[],
 ): number {
