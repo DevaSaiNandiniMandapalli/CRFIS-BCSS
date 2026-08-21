@@ -1,4 +1,8 @@
-export type RemediationPriority = 'Critical' | 'High' | 'Medium' | 'Low'
+export type RemediationPriority =
+  | 'Critical'
+  | 'High'
+  | 'Medium'
+  | 'Low'
 
 export type RemediationStatus =
   | 'Open'
@@ -17,8 +21,19 @@ export type RemediationCategory =
 export interface Remediation {
   id: string
   action: string
+
+  // Existing display name.
   relatedRisk: string
+
+  // Actual relationship to the Risk Register.
+  riskId: string
+
+  // Existing display name.
   asset: string
+
+  // Actual relationship to the Asset Register.
+  assetId: string
+
   category: RemediationCategory
   priority: RemediationPriority
   owner: string

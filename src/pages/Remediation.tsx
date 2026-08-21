@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
+import { demoAssets } from '../data/demoAssets'
 import { demoRemediations } from '../data/demoRemediations'
+import { demoRisks } from '../data/demoRisks'
 import type {
+  RemediationCategory,
   RemediationPriority,
   RemediationStatus,
-  RemediationCategory,
 } from '../types/remediation'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -21,25 +23,53 @@ function Remediation() {
   const [category, setCategory] =
     useState<RemediationCategory | 'All'>('All')
 
+  const riskById = useMemo(
+    () =>
+      new Map(
+        demoRisks.map((risk) => [risk.id, risk]),
+      ),
+    [],
+  )
+
+  const assetById = useMemo(
+    () =>
+      new Map(
+        demoAssets.map((asset) => [asset.id, asset]),
+      ),
+    [],
+  )
+
   const filteredRemediations = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return demoRemediations.filter((item) => {
+      const linkedRisk = riskById.get(item.riskId)
+      const linkedAsset = assetById.get(item.assetId)
+
+      const riskName =
+        linkedRisk?.risk ?? item.relatedRisk
+
+      const assetName =
+        linkedAsset?.name ?? item.asset
+
       const matchesSearch =
         !query ||
         item.action.toLowerCase().includes(query) ||
-        item.relatedRisk.toLowerCase().includes(query) ||
-        item.asset.toLowerCase().includes(query) ||
+        riskName.toLowerCase().includes(query) ||
+        assetName.toLowerCase().includes(query) ||
         item.owner.toLowerCase().includes(query)
 
       const matchesPriority =
-        priority === 'All' || item.priority === priority
+        priority === 'All' ||
+        item.priority === priority
 
       const matchesStatus =
-        status === 'All' || item.status === status
+        status === 'All' ||
+        item.status === status
 
       const matchesCategory =
-        category === 'All' || item.category === category
+        category === 'All' ||
+        item.category === category
 
       return (
         matchesSearch &&
@@ -48,7 +78,14 @@ function Remediation() {
         matchesCategory
       )
     })
-  }, [search, priority, status, category])
+  }, [
+    search,
+    priority,
+    status,
+    category,
+    riskById,
+    assetById,
+  ])
 
   const openCount = demoRemediations.filter(
     (item) => item.status === 'Open',
@@ -93,16 +130,22 @@ function Remediation() {
         <div>
           <div className="module-title-row">
             <h2>Remediation</h2>
-            <span className="demo-badge">DEMO DATA</span>
+            <span className="demo-badge">
+              DEMO DATA
+            </span>
           </div>
 
           <p>
-            Track remediation actions, ownership, cost, deadlines,
-            and expected reduction in financial exposure.
+            Track remediation actions, ownership, cost,
+            deadlines, and expected reduction in financial
+            exposure.
           </p>
         </div>
 
-        <button className="primary-button" type="button">
+        <button
+          className="primary-button"
+          type="button"
+        >
           + Add Action
         </button>
       </div>
@@ -134,21 +177,30 @@ function Remediation() {
 
         <article className="risk-kpi exposure-kpi">
           <span>EXPECTED REDUCTION</span>
-          <strong>{currencyFormatter.format(totalReduction)}</strong>
-          <small>Fictional placeholder value</small>
+          <strong>
+            {currencyFormatter.format(totalReduction)}
+          </strong>
+          <small>
+            Fictional placeholder value
+          </small>
         </article>
       </div>
 
       <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+        <span className="demo-notice-icon">
+          i
+        </span>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>
+            Demonstration environment
+          </strong>
 
           <p>
-            All remediation actions, costs, dates, and financial
-            reduction estimates on this screen are fictional
-            placeholder data for CRFIS interface development.
+            All remediation actions, costs, dates,
+            and financial reduction estimates on this
+            screen are fictional placeholder data for
+            CRFIS interface development.
           </p>
         </div>
       </div>
@@ -161,7 +213,9 @@ function Remediation() {
             type="search"
             placeholder="Search actions, risks, assets, owners..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             aria-label="Search remediation actions"
           />
         </label>
@@ -170,50 +224,90 @@ function Remediation() {
           value={priority}
           onChange={(event) =>
             setPriority(
-              event.target.value as RemediationPriority | 'All',
+              event.target.value as
+                | RemediationPriority
+                | 'All',
             )
           }
           aria-label="Filter by priority"
         >
-          <option value="All">All Priorities</option>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Medium">Medium</option>
-          <option value="Low">Low</option>
+          <option value="All">
+            All Priorities
+          </option>
+          <option value="Critical">
+            Critical
+          </option>
+          <option value="High">
+            High
+          </option>
+          <option value="Medium">
+            Medium
+          </option>
+          <option value="Low">
+            Low
+          </option>
         </select>
 
         <select
           value={status}
           onChange={(event) =>
-            setStatus(event.target.value as RemediationStatus | 'All')
+            setStatus(
+              event.target.value as
+                | RemediationStatus
+                | 'All',
+            )
           }
           aria-label="Filter by status"
         >
-          <option value="All">All Statuses</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Blocked">Blocked</option>
-          <option value="Completed">Completed</option>
+          <option value="All">
+            All Statuses
+          </option>
+          <option value="Open">
+            Open
+          </option>
+          <option value="In Progress">
+            In Progress
+          </option>
+          <option value="Blocked">
+            Blocked
+          </option>
+          <option value="Completed">
+            Completed
+          </option>
         </select>
 
         <select
           value={category}
           onChange={(event) =>
             setCategory(
-              event.target.value as RemediationCategory | 'All',
+              event.target.value as
+                | RemediationCategory
+                | 'All',
             )
           }
           aria-label="Filter by category"
         >
-          <option value="All">All Categories</option>
-          <option value="Access Control">Access Control</option>
-          <option value="Infrastructure">Infrastructure</option>
-          <option value="Data Protection">Data Protection</option>
-          <option value="Cloud Security">Cloud Security</option>
+          <option value="All">
+            All Categories
+          </option>
+          <option value="Access Control">
+            Access Control
+          </option>
+          <option value="Infrastructure">
+            Infrastructure
+          </option>
+          <option value="Data Protection">
+            Data Protection
+          </option>
+          <option value="Cloud Security">
+            Cloud Security
+          </option>
           <option value="Backup & Recovery">
             Backup &amp; Recovery
           </option>
-          <option value="Third Party">Third Party</option>
+          <option value="Third Party">
+            Third Party
+          </option>
         </select>
 
         {hasFilters && (
@@ -230,7 +324,9 @@ function Remediation() {
       <div className="risk-register-table">
         <div className="table-header">
           <div>
-            <strong>Remediation Inventory</strong>
+            <strong>
+              Remediation Inventory
+            </strong>
 
             <span>
               Showing {filteredRemediations.length} of{' '}
@@ -259,60 +355,100 @@ function Remediation() {
             </thead>
 
             <tbody>
-              {filteredRemediations.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="risk-name">
-                      <strong>{item.action}</strong>
-                      <span>{item.id}</span>
-                    </div>
-                  </td>
+              {filteredRemediations.map((item) => {
+                const linkedRisk =
+                  riskById.get(item.riskId)
 
-                  <td>{item.relatedRisk}</td>
+                const linkedAsset =
+                  assetById.get(item.assetId)
 
-                  <td>{item.asset}</td>
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="risk-name">
+                        <strong>
+                          {item.action}
+                        </strong>
 
-                  <td>
-                    <span
-                      className={`risk-severity ${item.priority.toLowerCase()}`}
-                    >
-                      {item.priority}
-                    </span>
-                  </td>
+                        <span>
+                          {item.id}
+                        </span>
+                      </div>
+                    </td>
 
-                  <td>{item.owner}</td>
+                    <td>
+                      <div className="risk-name">
+                        <strong>
+                          {linkedRisk?.risk ??
+                            item.relatedRisk}
+                        </strong>
 
-                  <td>{item.dueDate}</td>
+                        <span>
+                          {item.riskId}
+                        </span>
+                      </div>
+                    </td>
 
-                  <td>
-                    <span
-                      className={`risk-status ${item.status
-                        .toLowerCase()
-                        .replaceAll(' ', '-')}`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
+                    <td>
+                      <div className="risk-name">
+                        <strong>
+                          {linkedAsset?.name ??
+                            item.asset}
+                        </strong>
 
-                  <td className="financial-value">
-                    {currencyFormatter.format(
-                      item.expectedReduction,
-                    )}
-                  </td>
-                </tr>
-              ))}
+                        <span>
+                          {item.assetId}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td>
+                      <span
+                        className={`risk-severity ${item.priority.toLowerCase()}`}
+                      >
+                        {item.priority}
+                      </span>
+                    </td>
+
+                    <td>
+                      {item.owner}
+                    </td>
+
+                    <td>
+                      {item.dueDate}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`risk-status ${item.status
+                          .toLowerCase()
+                          .replaceAll(' ', '-')}`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+
+                    <td className="financial-value">
+                      {currencyFormatter.format(
+                        item.expectedReduction,
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
 
               {filteredRemediations.length === 0 && (
                 <tr>
                   <td colSpan={8}>
                     <div className="risk-empty-state">
                       <strong>
-                        No remediation actions match the current
-                        filters.
+                        No remediation actions match
+                        the current filters.
                       </strong>
 
                       <span>
-                        Try changing the search or filter selections.
+                        Try changing the search or
+                        filter selections.
                       </span>
 
                       <button
@@ -332,25 +468,36 @@ function Remediation() {
       </div>
 
       <div className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon">
+          ↗
+        </div>
 
         <div>
-          <span className="eyebrow">REMEDIATION INTELLIGENCE</span>
+          <span className="eyebrow">
+            REMEDIATION INTELLIGENCE
+          </span>
 
           <h2>
-            Prioritize the actions that can reduce financial exposure.
+            Prioritize the actions that can reduce
+            financial exposure.
           </h2>
 
           <p>
-            CRFIS will eventually connect remediation cost with
-            expected financial exposure reduction to help leadership
-            evaluate security investment decisions.
+            CRFIS will eventually connect remediation
+            cost with expected financial exposure
+            reduction to help leadership evaluate
+            security investment decisions.
           </p>
         </div>
 
         <div className="intelligence-metric">
-          <span>DEMO ACTION COST</span>
-          <strong>{currencyFormatter.format(totalCost)}</strong>
+          <span>
+            DEMO ACTION COST
+          </span>
+
+          <strong>
+            {currencyFormatter.format(totalCost)}
+          </strong>
         </div>
       </div>
     </section>
