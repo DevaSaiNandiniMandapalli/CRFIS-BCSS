@@ -1,6 +1,14 @@
-export type RiskSeverity = 'Critical' | 'High' | 'Medium' | 'Low'
+export type RiskSeverity =
+  | 'Critical'
+  | 'High'
+  | 'Medium'
+  | 'Low'
 
-export type RiskLikelihood = 'Very High' | 'High' | 'Medium' | 'Low'
+export type RiskLikelihood =
+  | 'Very High'
+  | 'High'
+  | 'Medium'
+  | 'Low'
 
 export type RiskStatus =
   | 'Open'
@@ -19,7 +27,13 @@ export type RiskCategory =
 export interface Risk {
   id: string
   risk: string
+
+  // Display name kept for compatibility with the current UI.
   asset: string
+
+  // Relationship to the Asset Register.
+  assetId: string
+
   category: RiskCategory
   severity: RiskSeverity
   likelihood: RiskLikelihood
