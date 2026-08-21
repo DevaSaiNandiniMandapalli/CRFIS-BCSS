@@ -5,6 +5,7 @@ import AssetRegister from './pages/AssetRegister'
 import Remediation from './pages/Remediation'
 import ScenarioRegister from './pages/ScenarioRegister'
 import InsuranceRegister from './pages/InsuranceRegister'
+import Reports from './pages/Reports'
 
 const navigation = [
   'Overview',
@@ -316,16 +317,18 @@ function App() {
               </section>
             </>
           ) : activePage === 'Risk Register' ? (
-  <RiskRegister />
-) : activePage === 'Assets' ? (
-  <AssetRegister />
-) : activePage === 'Remediation' ? (
-  <Remediation />
-) : activePage === 'Scenarios' ? (
-  <ScenarioRegister />
-) : activePage === 'Insurance' ? (
-  <InsuranceRegister />
-) : (
+            <RiskRegister />
+          ) : activePage === 'Assets' ? (
+            <AssetRegister />
+          ) : activePage === 'Remediation' ? (
+            <Remediation />
+          ) : activePage === 'Scenarios' ? (
+            <ScenarioRegister />
+          ) : activePage === 'Insurance' ? (
+            <InsuranceRegister />
+          ) : activePage === 'Reports' ? (
+            <Reports />
+          ) : (
             <section className="placeholder-page">
               <span className="status-pill">
                 <span className="status-dot" />
@@ -335,17 +338,17 @@ function App() {
               <h2>{pageTitle}</h2>
 
               <p>
-                The {activePage} module is part of the CRFIS platform.
-                Its production functionality will be implemented in
-                the appropriate development phase.
+                The {activePage} module is part of the CRFIS
+                platform. Its production functionality will be
+                implemented in the appropriate development phase.
               </p>
 
               <div className="placeholder-card">
                 <strong>Module ready for development</strong>
 
                 <span>
-                  Navigation, routing foundation, theme support, and
-                  application shell are already connected.
+                  Navigation, routing foundation, theme support,
+                  and application shell are already connected.
                 </span>
               </div>
             </section>
