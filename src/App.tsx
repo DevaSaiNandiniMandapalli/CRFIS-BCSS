@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import RiskRegister from './pages/RiskRegister'
 
 const navigation = [
   'Overview',
@@ -59,11 +60,16 @@ function App() {
   const pageTitle =
     activePage === 'Overview' ? 'Executive Overview' : activePage
 
+  const handleNavigation = (page: string) => {
+    setActivePage(page)
+  }
+
   return (
     <div className="crfis-app">
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">C</div>
+
           <div>
             <strong>CRFIS</strong>
             <span>BCSSL</span>
@@ -73,20 +79,25 @@ function App() {
         <div className="sidebar-label">COMMAND CENTER</div>
 
         <nav aria-label="Primary navigation">
-       {navigation.map((item) => (
-            <button
-              key={item}
-              className={`nav-item ${activePage === item ? 'active' : ''}`}
-              type="button"
-              onClick={() => setActivePage(item)}
-              aria-current={activePage === item ? 'page' : undefined}
-            >
-              <span className="nav-icon">
-                {activePage === item ? '◈' : '○'}
-              </span>
-              {item}
-            </button>
-          ))}
+          {navigation.map((item) => {
+            const isActive = activePage === item
+
+            return (
+              <button
+                key={item}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+                type="button"
+                onClick={() => handleNavigation(item)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span className="nav-icon">
+                  {isActive ? '◈' : '○'}
+                </span>
+
+                <span>{item}</span>
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -101,13 +112,14 @@ function App() {
             <span className="eyebrow">
               CYBER RISK FINANCIAL INTELLIGENCE
             </span>
+
             <h1>{pageTitle}</h1>
           </div>
 
           <div className="topbar-actions">
             <button className="search" type="button">
               <span>⌕</span>
-              Search
+              <span>Search</span>
               <kbd>⌘ K</kbd>
             </button>
 
@@ -134,6 +146,7 @@ function App() {
 
             <div className="profile">
               <div className="avatar">CS</div>
+
               <div>
                 <strong>CISO Office</strong>
                 <span>Executive</span>
@@ -155,13 +168,17 @@ function App() {
                   <h2>Financial Risk Intelligence</h2>
 
                   <p>
-                    Translate cybersecurity exposure into financial impact,
-                    prioritize remediation, and give leadership a clear view
-                    of risk investment decisions.
+                    Translate cybersecurity exposure into financial
+                    impact, prioritize remediation, and give leadership
+                    a clear view of risk investment decisions.
                   </p>
                 </div>
 
-                <button className="primary-button" type="button">
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => setActivePage('Risk Register')}
+                >
                   View Risk Register →
                 </button>
               </section>
@@ -174,6 +191,7 @@ function App() {
                   <span>Total Financial Exposure</span>
                   <strong>$2.49M</strong>
                   <small>DEMO / PLACEHOLDER</small>
+
                   <div className="metric-trend">
                     Illustrative exposure
                   </div>
@@ -183,6 +201,7 @@ function App() {
                   <span>Annualized Loss Expectancy</span>
                   <strong>$640K</strong>
                   <small>DEMO / PLACEHOLDER</small>
+
                   <div className="metric-trend">
                     Illustrative ALE
                   </div>
@@ -192,6 +211,7 @@ function App() {
                   <span>Critical Risks</span>
                   <strong>04</strong>
                   <small>DEMO / PLACEHOLDER</small>
+
                   <div className="metric-trend">
                     Requires attention
                   </div>
@@ -201,6 +221,7 @@ function App() {
                   <span>Remediation Opportunity</span>
                   <strong>$890K</strong>
                   <small>DEMO / PLACEHOLDER</small>
+
                   <div className="metric-trend">
                     Potential exposure reduction
                   </div>
@@ -209,11 +230,18 @@ function App() {
 
               <section className="section-header">
                 <div>
-                  <span className="eyebrow">PRIORITY EXPOSURES</span>
+                  <span className="eyebrow">
+                    PRIORITY EXPOSURES
+                  </span>
+
                   <h2>Risk Summary</h2>
                 </div>
 
-                <button className="secondary-button" type="button">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setActivePage('Risk Register')}
+                >
                   View all risks
                 </button>
               </section>
@@ -249,6 +277,7 @@ function App() {
                           </td>
 
                           <td>{item.exposure}</td>
+
                           <td>{item.status}</td>
                         </tr>
                       ))}
@@ -271,9 +300,9 @@ function App() {
 
                   <p>
                     CRFIS connects cybersecurity findings, asset
-                    criticality, probability, financial loss, remediation
-                    cost, and business context into one decision-ready
-                    view.
+                    criticality, probability, financial loss,
+                    remediation cost, and business context into one
+                    decision-ready view.
                   </p>
                 </div>
 
@@ -282,6 +311,8 @@ function App() {
                 </button>
               </section>
             </>
+          ) : activePage === 'Risk Register' ? (
+            <RiskRegister />
           ) : (
             <section className="placeholder-page">
               <span className="status-pill">
@@ -293,12 +324,13 @@ function App() {
 
               <p>
                 The {activePage} module is part of the CRFIS platform.
-                Its production functionality will be implemented in the
-                appropriate development phase.
+                Its production functionality will be implemented in
+                the appropriate development phase.
               </p>
 
               <div className="placeholder-card">
                 <strong>Module ready for development</strong>
+
                 <span>
                   Navigation, routing foundation, theme support, and
                   application shell are already connected.
@@ -308,8 +340,13 @@ function App() {
           )}
 
           <footer>
-            <span>CRFIS • Cyber Risk Financial Impact System</span>
-            <span>BCSSL • From Information to Intelligence</span>
+            <span>
+              CRFIS • Cyber Risk Financial Impact System
+            </span>
+
+            <span>
+              BCSSL • From Information to Intelligence
+            </span>
           </footer>
         </div>
       </main>
