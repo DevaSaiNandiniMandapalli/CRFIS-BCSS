@@ -3,7 +3,14 @@ import { demoReports } from '../data/demoReports'
 import { demoRisks } from '../data/demoRisks'
 import { demoRemediations } from '../data/demoRemediations'
 import { demoInsurance } from '../data/demoInsurance'
+import {
+  calculateTotalExposure,
+  calculateCriticalRiskCount,
+  calculateRemediationOpportunity,
+  calculateTotalInsuranceCoverage,
+} from '../utils/financialMetrics'
 import type { ReportStatus, ReportType } from '../types/report'
+
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -21,25 +28,15 @@ function Reports() {
    * instead of being hard-coded.
    */
 
-  const totalExposure = demoRisks.reduce(
-    (total, risk) => total + risk.exposure,
-    0,
-  )
+  const totalExposure = calculateTotalExposure(demoRisks)
 
-  const criticalRiskCount = demoRisks.filter(
-    (risk) => risk.severity === 'Critical',
-  ).length
+const criticalRiskCount = calculateCriticalRiskCount(demoRisks)
 
-  const remediationOpportunity = demoRemediations.reduce(
-    (total, remediation) =>
-      total + remediation.expectedReduction,
-    0,
-  )
+const remediationOpportunity =
+  calculateRemediationOpportunity(demoRemediations)
 
-  const totalInsuranceCoverage = demoInsurance.reduce(
-    (total, policy) => total + policy.coverageLimit,
-    0,
-  )
+const totalInsuranceCoverage =
+  calculateTotalInsuranceCoverage(demoInsurance)
 
 const query = search.trim().toLowerCase()
 

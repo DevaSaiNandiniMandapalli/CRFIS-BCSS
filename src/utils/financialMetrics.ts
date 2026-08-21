@@ -1,8 +1,13 @@
 import type { Risk } from '../types/risk'
 import type { Remediation } from '../types/remediation'
+import type { InsurancePolicy } from '../types/insurance'
 
 export function calculateTotalExposure(risks: Risk[]): number {
   return risks.reduce((total, risk) => total + risk.exposure, 0)
+}
+
+export function calculateCriticalRiskCount(risks: Risk[]): number {
+  return risks.filter((risk) => risk.severity === 'Critical').length
 }
 
 export function calculateRemediationOpportunity(
@@ -52,4 +57,26 @@ export function calculateRemainingExposure(
   const reduction = calculateRemediationOpportunity(remediations)
 
   return Math.max(exposure - reduction, 0)
+}
+
+export function calculateTotalInsuranceCoverage(
+  policies: InsurancePolicy[],
+): number {
+  return policies.reduce(
+    (total, policy) => total + policy.coverageLimit,
+    0,
+  )
+}
+
+export function calculateAnnualizedLossExpectancy(
+  risks: Risk[],
+): number {
+  /*
+   * CRFIS demonstration assumption:
+   * 25% of total exposure.
+   *
+   * This is NOT a production financial,
+   * actuarial, or risk calculation.
+   */
+  return calculateTotalExposure(risks) * 0.25
 }
