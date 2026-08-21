@@ -78,11 +78,38 @@ function Audit() {
     })
   }, [search, statusFilter, frameworkFilter])
 
+  const totalAudits = demoAudits.length
+
+  const totalFindings = demoAudits.reduce(
+    (total, audit) => total + audit.findings,
+    0,
+  )
+
+  const completedAudits = demoAudits.filter(
+    (audit) => audit.status === 'Completed',
+  ).length
+
+  const highCriticalFindings = findings.filter(
+    (finding) =>
+      finding.severity === 'High' ||
+      finding.severity === 'Critical',
+  ).length
+
+  const overdueAudits = demoAudits.filter(
+    (audit) => audit.status === 'Overdue',
+  ).length
+
+  const evidenceCompletion = Math.round(
+    (completedAudits / totalAudits) * 100,
+  )
+
   return (
     <div className="audit-page">
       <section className="module-intro">
         <div>
-          <span className="eyebrow">AUDIT &amp; GOVERNANCE</span>
+          <span className="eyebrow">
+            AUDIT &amp; GOVERNANCE
+          </span>
 
           <h2>Audit</h2>
 
@@ -115,8 +142,13 @@ function Audit() {
       <section className="metrics" aria-label="Audit metrics">
         <article className="metric-card">
           <span>Total Audits</span>
-          <strong>05</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>
+            {String(totalAudits).padStart(2, '0')}
+          </strong>
+
+          <small>DEMO / CALCULATED</small>
+
           <div className="metric-trend">
             Audit programs tracked
           </div>
@@ -124,17 +156,27 @@ function Audit() {
 
         <article className="metric-card">
           <span>Open Findings</span>
-          <strong>07</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>
+            {String(totalFindings).padStart(2, '0')}
+          </strong>
+
+          <small>DEMO / CALCULATED</small>
+
           <div className="metric-trend">
-            Requires follow-up
+            Findings across audit programs
           </div>
         </article>
 
         <article className="metric-card accent">
           <span>High / Critical Findings</span>
-          <strong>03</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>
+            {String(highCriticalFindings).padStart(2, '0')}
+          </strong>
+
+          <small>DEMO / CALCULATED</small>
+
           <div className="metric-trend">
             Priority governance items
           </div>
@@ -142,17 +184,25 @@ function Audit() {
 
         <article className="metric-card">
           <span>Evidence Completion</span>
-          <strong>82%</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>{evidenceCompletion}%</strong>
+
+          <small>DEMO / ILLUSTRATIVE</small>
+
           <div className="metric-trend">
-            Illustrative readiness
+            Completed audit programs
           </div>
         </article>
 
         <article className="metric-card">
           <span>Overdue Actions</span>
-          <strong>02</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>
+            {String(overdueAudits).padStart(2, '0')}
+          </strong>
+
+          <small>DEMO / CALCULATED</small>
+
           <div className="metric-trend">
             Requires attention
           </div>
@@ -162,6 +212,7 @@ function Audit() {
       <section className="section-header">
         <div>
           <span className="eyebrow">GOVERNANCE PROGRAM</span>
+
           <h2>Audit Inventory</h2>
         </div>
 
@@ -282,11 +333,12 @@ function Audit() {
       <section className="section-header">
         <div>
           <span className="eyebrow">AUDIT FINDINGS</span>
+
           <h2>Priority Findings</h2>
         </div>
 
         <span className="table-count">
-          3 demo findings
+          {findings.length} demo findings
         </span>
       </section>
 
@@ -358,7 +410,7 @@ function Audit() {
         </div>
 
         <span className="ai-governance-badge">
-          DEMO
+          HUMAN-IN-THE-LOOP
         </span>
       </section>
     </div>
