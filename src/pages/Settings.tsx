@@ -4,7 +4,19 @@ import type { CRFISSettings, ThemePreference } from '../types/settings'
 
 function Settings() {
   const [settings, setSettings] =
-    useState<CRFISSettings>(demoSettings)
+  useState<CRFISSettings>(() => {
+    const saved = localStorage.getItem('crfis-settings')
+
+    if (!saved) {
+      return demoSettings
+    }
+
+    try {
+      return JSON.parse(saved) as CRFISSettings
+    } catch {
+      return demoSettings
+    }
+  })
 
   const [saved, setSaved] = useState(false)
 
