@@ -1,0 +1,88 @@
+import type { Scenario } from '../types/scenario'
+
+export const demoScenarios: Scenario[] = [
+  {
+    id: 'SCN-001',
+    name: 'Enterprise Ransomware Event',
+    category: 'Ransomware',
+    description:
+      'Demonstration scenario representing a major ransomware event affecting critical enterprise infrastructure.',
+    severity: 'Critical',
+    probability: 'Medium',
+    estimatedImpact: 1850000,
+    businessImpact: 'Extended operational disruption',
+    status: 'Under Review',
+    owner: 'Security Operations',
+    isDemo: true,
+  },
+  {
+    id: 'SCN-002',
+    name: 'Customer Data Breach',
+    category: 'Data Breach',
+    description:
+      'Demonstration scenario representing unauthorized access to sensitive customer information.',
+    severity: 'Critical',
+    probability: 'Medium',
+    estimatedImpact: 1420000,
+    businessImpact: 'Regulatory and customer impact',
+    status: 'Draft',
+    owner: 'Data Security',
+    isDemo: true,
+  },
+  {
+    id: 'SCN-003',
+    name: 'Payment Platform Outage',
+    category: 'Business Interruption',
+    description:
+      'Demonstration scenario representing an extended disruption to the enterprise payment platform.',
+    severity: 'High',
+    probability: 'Low',
+    estimatedImpact: 980000,
+    businessImpact: 'Revenue interruption',
+    status: 'Approved',
+    owner: 'Finance Technology',
+    isDemo: true,
+  },
+  {
+    id: 'SCN-004',
+    name: 'Production Cloud Failure',
+    category: 'Cloud Outage',
+    description:
+      'Demonstration scenario representing a significant production cloud service interruption.',
+    severity: 'High',
+    probability: 'Medium',
+    estimatedImpact: 760000,
+    businessImpact: 'Service availability impact',
+    status: 'Under Review',
+    owner: 'Cloud Security',
+    isDemo: true,
+  },
+  {
+    id: 'SCN-005',
+    name: 'Third-Party Service Disruption',
+    category: 'Third Party',
+    description:
+      'Demonstration scenario representing a major outage affecting a critical third-party provider.',
+    severity: 'Medium',
+    probability: 'Medium',
+    estimatedImpact: 520000,
+    businessImpact: 'Customer service disruption',
+    status: 'Draft',
+    owner: 'Vendor Risk',
+    isDemo: true,
+  },
+  {
+    id: 'SCN-006',
+    name: 'Privileged Insider Event',
+    category: 'Insider Threat',
+    description:
+      'Demonstration scenario representing misuse of privileged access within corporate systems.',
+    severity: 'High',
+    probability: 'Low',
+    estimatedImpact: 690000,
+    businessImpact: 'Data and operational impact',
+    status: 'Archived',
+    owner: 'Security Operations',
+    isDemo: true,
+  },
+]

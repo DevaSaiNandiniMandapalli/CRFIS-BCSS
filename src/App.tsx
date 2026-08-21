@@ -3,6 +3,7 @@ import './App.css'
 import RiskRegister from './pages/RiskRegister'
 import AssetRegister from './pages/AssetRegister'
 import Remediation from './pages/Remediation'
+import ScenarioRegister from './pages/ScenarioRegister'
 
 const navigation = [
   'Overview',
@@ -319,6 +320,8 @@ function App() {
   <AssetRegister />
 ) : activePage === 'Remediation' ? (
   <Remediation />
+) : activePage === 'Scenarios' ? (
+  <ScenarioRegister />
 ) : (
             <section className="placeholder-page">
               <span className="status-pill">
