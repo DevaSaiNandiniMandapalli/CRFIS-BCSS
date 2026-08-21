@@ -1,22 +1,32 @@
-import type { Risk } from '../types/risk'
-import type { Remediation } from '../types/remediation'
-import type { InsurancePolicy } from '../types/insurance'
-import type { Scenario } from '../types/scenario'
 import type { Asset } from '../types/asset'
+import type { InsurancePolicy } from '../types/insurance'
+import type { Remediation } from '../types/remediation'
+import type { Risk } from '../types/risk'
+import type { Scenario } from '../types/scenario'
 
-export function calculateTotalExposure(risks: Risk[]): number {
-  return risks.reduce((total, risk) => total + risk.exposure, 0)
+export function calculateTotalExposure(
+  risks: Risk[],
+): number {
+  return risks.reduce(
+    (total, risk) => total + risk.exposure,
+    0,
+  )
 }
 
-export function calculateCriticalRiskCount(risks: Risk[]): number {
-  return risks.filter((risk) => risk.severity === 'Critical').length
+export function calculateCriticalRiskCount(
+  risks: Risk[],
+): number {
+  return risks.filter(
+    (risk) => risk.severity === 'Critical',
+  ).length
 }
 
 export function calculateRemediationOpportunity(
   remediations: Remediation[],
 ): number {
   return remediations.reduce(
-    (total, remediation) => total + remediation.expectedReduction,
+    (total, remediation) =>
+      total + remediation.expectedReduction,
     0,
   )
 }
@@ -25,7 +35,8 @@ export function calculateRemediationCost(
   remediations: Remediation[],
 ): number {
   return remediations.reduce(
-    (total, remediation) => total + remediation.estimatedCost,
+    (total, remediation) =>
+      total + remediation.estimatedCost,
     0,
   )
 }
@@ -33,8 +44,11 @@ export function calculateRemediationCost(
 export function calculateNetRemediationBenefit(
   remediations: Remediation[],
 ): number {
-  const reduction = calculateRemediationOpportunity(remediations)
-  const cost = calculateRemediationCost(remediations)
+  const reduction =
+    calculateRemediationOpportunity(remediations)
+
+  const cost =
+    calculateRemediationCost(remediations)
 
   return reduction - cost
 }
@@ -42,13 +56,17 @@ export function calculateNetRemediationBenefit(
 export function calculateReductionToCostRatio(
   remediations: Remediation[],
 ): number {
-  const cost = calculateRemediationCost(remediations)
+  const cost =
+    calculateRemediationCost(remediations)
 
   if (cost === 0) {
     return 0
   }
 
-  return calculateRemediationOpportunity(remediations) / cost
+  return (
+    calculateRemediationOpportunity(remediations) /
+    cost
+  )
 }
 
 export function calculateRemainingExposure(
@@ -56,9 +74,20 @@ export function calculateRemainingExposure(
   remediations: Remediation[],
 ): number {
   const exposure = calculateTotalExposure(risks)
-  const reduction = calculateRemediationOpportunity(remediations)
+
+  const reduction =
+    calculateRemediationOpportunity(remediations)
 
   return Math.max(exposure - reduction, 0)
+}
+
+export function calculateTotalAssetValue(
+  assets: Asset[],
+): number {
+  return assets.reduce(
+    (total, asset) => total + asset.annualValue,
+    0,
+  )
 }
 
 export function calculateTotalInsuranceCoverage(
@@ -93,7 +122,9 @@ export function calculateInsuranceCoverageGap(
   policies: InsurancePolicy[],
 ): number {
   const exposure = calculateTotalExposure(risks)
-  const coverage = calculateTotalInsuranceCoverage(policies)
+
+  const coverage =
+    calculateTotalInsuranceCoverage(policies)
 
   return Math.max(exposure - coverage, 0)
 }
@@ -115,15 +146,8 @@ export function calculateTotalScenarioImpact(
   scenarios: Scenario[],
 ): number {
   return scenarios.reduce(
-    (total, scenario) => total + scenario.estimatedImpact,
-    0,
-  )
-}
-export function calculateTotalAssetValue(
-  assets: Asset[],
-): number {
-  return assets.reduce(
-    (total, asset) => total + asset.annualValue,
+    (total, scenario) =>
+      total + scenario.estimatedImpact,
     0,
   )
 }

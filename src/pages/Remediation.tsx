@@ -2,17 +2,24 @@ import { useMemo, useState } from 'react'
 import { demoAssets } from '../data/demoAssets'
 import { demoRemediations } from '../data/demoRemediations'
 import { demoRisks } from '../data/demoRisks'
+import {
+  calculateRemediationCost,
+  calculateRemediationOpportunity,
+} from '../utils/financialMetrics'
 import type {
   RemediationCategory,
   RemediationPriority,
   RemediationStatus,
 } from '../types/remediation'
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+const currencyFormatter = new Intl.NumberFormat(
+  'en-US',
+  {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  },
+)
 
 function Remediation() {
   const [search, setSearch] = useState('')
@@ -101,14 +108,13 @@ function Remediation() {
 
   const overdueCount = 1
 
-  const totalCost = demoRemediations.reduce(
-    (total, item) => total + item.estimatedCost,
-    0,
-  )
+  const totalCost = calculateRemediationCost(
+  demoRemediations,
+)
 
-  const totalReduction = demoRemediations.reduce(
-    (total, item) => total + item.expectedReduction,
-    0,
+const totalReduction =
+  calculateRemediationOpportunity(
+    demoRemediations,
   )
 
   const clearFilters = () => {
@@ -130,6 +136,7 @@ function Remediation() {
         <div>
           <div className="module-title-row">
             <h2>Remediation</h2>
+
             <span className="demo-badge">
               DEMO DATA
             </span>
@@ -177,9 +184,11 @@ function Remediation() {
 
         <article className="risk-kpi exposure-kpi">
           <span>EXPECTED REDUCTION</span>
+
           <strong>
             {currencyFormatter.format(totalReduction)}
           </strong>
+
           <small>
             Fictional placeholder value
           </small>
@@ -234,15 +243,19 @@ function Remediation() {
           <option value="All">
             All Priorities
           </option>
+
           <option value="Critical">
             Critical
           </option>
+
           <option value="High">
             High
           </option>
+
           <option value="Medium">
             Medium
           </option>
+
           <option value="Low">
             Low
           </option>
@@ -262,15 +275,19 @@ function Remediation() {
           <option value="All">
             All Statuses
           </option>
+
           <option value="Open">
             Open
           </option>
+
           <option value="In Progress">
             In Progress
           </option>
+
           <option value="Blocked">
             Blocked
           </option>
+
           <option value="Completed">
             Completed
           </option>
@@ -290,21 +307,27 @@ function Remediation() {
           <option value="All">
             All Categories
           </option>
+
           <option value="Access Control">
             Access Control
           </option>
+
           <option value="Infrastructure">
             Infrastructure
           </option>
+
           <option value="Data Protection">
             Data Protection
           </option>
+
           <option value="Cloud Security">
             Cloud Security
           </option>
+
           <option value="Backup & Recovery">
             Backup &amp; Recovery
           </option>
+
           <option value="Third Party">
             Third Party
           </option>
