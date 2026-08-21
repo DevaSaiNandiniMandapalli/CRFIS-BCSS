@@ -6,6 +6,7 @@ import Remediation from './pages/Remediation'
 import ScenarioRegister from './pages/ScenarioRegister'
 import InsuranceRegister from './pages/InsuranceRegister'
 import Reports from './pages/Reports'
+import AIAnalyst from './pages/AIAnalyst'
 
 const navigation = [
   'Overview',
@@ -327,8 +328,10 @@ function App() {
           ) : activePage === 'Insurance' ? (
             <InsuranceRegister />
           ) : activePage === 'Reports' ? (
-            <Reports />
-          ) : (
+  <Reports />
+) : activePage === 'AI Analyst' ? (
+  <AIAnalyst />
+) : (
             <section className="placeholder-page">
               <span className="status-pill">
                 <span className="status-dot" />
