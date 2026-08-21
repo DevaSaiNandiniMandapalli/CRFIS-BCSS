@@ -1,31 +1,63 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { demoReports } from '../data/demoReports'
+import { demoRisks } from '../data/demoRisks'
+import { demoRemediations } from '../data/demoRemediations'
+import { demoInsurance } from '../data/demoInsurance'
 import type { ReportStatus, ReportType } from '../types/report'
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
 
 function Reports() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<ReportStatus | 'All'>('All')
   const [type, setType] = useState<ReportType | 'All'>('All')
 
-  const filteredReports = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  /*
+   * These values now come from the CRFIS demo datasets
+   * instead of being hard-coded.
+   */
 
-    return demoReports.filter((report) => {
-      const matchesSearch =
-        !query ||
-        report.name.toLowerCase().includes(query) ||
-        report.type.toLowerCase().includes(query) ||
-        report.owner.toLowerCase().includes(query)
+  const totalExposure = demoRisks.reduce(
+    (total, risk) => total + risk.exposure,
+    0,
+  )
 
-      const matchesStatus =
-        status === 'All' || report.status === status
+  const criticalRiskCount = demoRisks.filter(
+    (risk) => risk.severity === 'Critical',
+  ).length
 
-      const matchesType =
-        type === 'All' || report.type === type
+  const remediationOpportunity = demoRemediations.reduce(
+    (total, remediation) =>
+      total + remediation.expectedReduction,
+    0,
+  )
 
-      return matchesSearch && matchesStatus && matchesType
-    })
-  }, [search, status, type])
+  const totalInsuranceCoverage = demoInsurance.reduce(
+    (total, policy) => total + policy.coverageLimit,
+    0,
+  )
+
+const query = search.trim().toLowerCase()
+
+const filteredReports = demoReports.filter((report) => {
+  const matchesSearch =
+    !query ||
+    report.name.toLowerCase().includes(query) ||
+    report.type.toLowerCase().includes(query) ||
+    report.owner.toLowerCase().includes(query)
+
+  const matchesStatus =
+    status === 'All' || report.status === status
+
+  const matchesType =
+    type === 'All' || report.type === type
+
+  return matchesSearch && matchesStatus && matchesType
+})
 
   const readyCount = demoReports.filter(
     (report) => report.status === 'Ready',
@@ -46,7 +78,9 @@ function Reports() {
   }
 
   const hasFilters =
-    search !== '' || status !== 'All' || type !== 'All'
+    search !== '' ||
+    status !== 'All' ||
+    type !== 'All'
 
   return (
     <section className="reports-page">
@@ -116,31 +150,53 @@ function Reports() {
             <h2>Decision Intelligence</h2>
           </div>
 
-          <span className="report-period">Q3 2026 • DEMO</span>
+          <span className="report-period">
+            Q3 2026 • DEMO
+          </span>
         </div>
 
         <div className="report-summary-grid">
           <article>
             <span>Financial Exposure</span>
-            <strong>$3.60M</strong>
+
+            <strong>
+              {currencyFormatter.format(totalExposure)}
+            </strong>
+
             <small>DEMO / PLACEHOLDER</small>
           </article>
 
           <article>
             <span>Critical Risks</span>
-            <strong>02</strong>
+
+            <strong>
+              {String(criticalRiskCount).padStart(2, '0')}
+            </strong>
+
             <small>DEMO / PLACEHOLDER</small>
           </article>
 
           <article>
             <span>Remediation Opportunity</span>
-            <strong>$1.42M</strong>
+
+            <strong>
+              {currencyFormatter.format(
+                remediationOpportunity,
+              )}
+            </strong>
+
             <small>DEMO / PLACEHOLDER</small>
           </article>
 
           <article>
             <span>Insurance Coverage</span>
-            <strong>$14.0M</strong>
+
+            <strong>
+              {currencyFormatter.format(
+                totalInsuranceCoverage,
+              )}
+            </strong>
+
             <small>DEMO / PLACEHOLDER</small>
           </article>
         </div>
@@ -162,7 +218,9 @@ function Reports() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(event.target.value as ReportStatus | 'All')
+            setStatus(
+              event.target.value as ReportStatus | 'All',
+            )
           }
           aria-label="Filter reports by status"
         >
@@ -175,7 +233,9 @@ function Reports() {
         <select
           value={type}
           onChange={(event) =>
-            setType(event.target.value as ReportType | 'All')
+            setType(
+              event.target.value as ReportType | 'All',
+            )
           }
           aria-label="Filter reports by type"
         >
@@ -286,7 +346,8 @@ function Reports() {
                       </strong>
 
                       <span>
-                        Try changing the search or filter selections.
+                        Try changing the search or filter
+                        selections.
                       </span>
 
                       <button
@@ -309,15 +370,17 @@ function Reports() {
         <div className="intelligence-icon">↗</div>
 
         <div>
-          <span className="eyebrow">REPORTING INTELLIGENCE</span>
+          <span className="eyebrow">
+            REPORTING INTELLIGENCE
+          </span>
 
           <h2>
             Turn risk data into executive decisions.
           </h2>
 
           <p>
-            CRFIS will eventually combine risk, asset, remediation,
-            scenario, and insurance information into decision-ready
+            CRFIS combines risk, asset, remediation, scenario,
+            and insurance information into decision-ready
             reports for leadership.
           </p>
         </div>
