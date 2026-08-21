@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { demoScenarios } from '../data/demoScenarios'
 import { demoRisks } from '../data/demoRisks'
 import { demoAssets } from '../data/demoAssets'
+import { calculateTotalScenarioImpact } from '../utils/financialMetrics'
 import type {
   ScenarioCategory,
   ScenarioSeverity,
@@ -85,10 +86,7 @@ function ScenarioRegister() {
     (scenario) => scenario.status === 'Under Review',
   ).length
 
-  const totalImpact = demoScenarios.reduce(
-    (total, scenario) => total + scenario.estimatedImpact,
-    0,
-  )
+ const totalImpact = calculateTotalScenarioImpact(demoScenarios)
 
   const clearFilters = () => {
     setSearch('')
