@@ -1,6 +1,13 @@
 import { useState } from 'react'
-import { demoAnalystInsights, demoAnalystMessages } from '../data/demoAnalyst'
+import { demoAnalystMessages } from '../data/demoAnalyst'
+import { demoRisks } from '../data/demoRisks'
+import { demoRemediations } from '../data/demoRemediations'
+import { demoInsurance } from '../data/demoInsurance'
 import type { AnalystMessage } from '../types/aiAnalyst'
+import {
+  calculateRemediationOpportunity,
+  calculateTotalInsuranceCoverage,
+} from '../utils/financialMetrics'
 
 const suggestedQuestions = [
   'Which risks have the highest financial exposure?',
@@ -9,11 +16,40 @@ const suggestedQuestions = [
   'How does insurance coverage compare with exposure?',
 ]
 
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
 function AIAnalyst() {
   const [messages, setMessages] =
     useState<AnalystMessage[]>(demoAnalystMessages)
 
   const [input, setInput] = useState('')
+
+  const highestExposureRisk = demoRisks
+    .slice()
+    .sort((a, b) => b.exposure - a.exposure)[0]
+
+  const priorityRisk = demoRisks
+    .slice()
+    .sort((a, b) => {
+      const severityRank = {
+        Critical: 4,
+        High: 3,
+        Medium: 2,
+        Low: 1,
+      }
+
+      return severityRank[b.severity] - severityRank[a.severity]
+    })[0]
+
+  const remediationOpportunity =
+    calculateRemediationOpportunity(demoRemediations)
+
+  const totalInsuranceCoverage =
+    calculateTotalInsuranceCoverage(demoInsurance)
 
   const handleSuggestedQuestion = (question: string) => {
     setInput(question)
@@ -26,14 +62,16 @@ function AIAnalyst() {
       return
     }
 
+    const now = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+
     const userMessage: AnalystMessage = {
       id: `MSG-${Date.now()}`,
       role: 'user',
       content: trimmed,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      timestamp: now,
       isDemo: true,
     }
 
@@ -42,10 +80,7 @@ function AIAnalyst() {
       role: 'assistant',
       content:
         'This is a demonstration response. The production CRFIS AI Analyst will eventually analyze connected risk, asset, remediation, scenario, financial, and insurance data to provide decision support.',
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      timestamp: now,
       isDemo: true,
     }
 
@@ -110,20 +145,55 @@ function AIAnalyst() {
         </div>
 
         <div className="ai-insight-grid">
-          {demoAnalystInsights.map((insight) => (
-            <article
-              className={`ai-insight-card ${insight.severity.toLowerCase()}`}
-              key={insight.title}
-            >
-              <span>{insight.title}</span>
+          <article
+            className={`ai-insight-card ${highestExposureRisk.severity.toLowerCase()}`}
+          >
+            <span>Highest Exposure</span>
 
-              <strong>{insight.value}</strong>
+            <strong>
+              {currencyFormatter.format(highestExposureRisk.exposure)}
+            </strong>
 
-              <small>{insight.description}</small>
+            <small>{highestExposureRisk.risk}</small>
 
-              <em>{insight.severity}</em>
-            </article>
-          ))}
+            <em>{highestExposureRisk.severity}</em>
+          </article>
+
+          <article
+            className={`ai-insight-card ${priorityRisk.severity.toLowerCase()}`}
+          >
+            <span>Priority Risk</span>
+
+            <strong>{priorityRisk.severity}</strong>
+
+            <small>{priorityRisk.asset}</small>
+
+            <em>{priorityRisk.severity}</em>
+          </article>
+
+          <article className="ai-insight-card high">
+            <span>Remediation Focus</span>
+
+            <strong>
+              {currencyFormatter.format(remediationOpportunity)}
+            </strong>
+
+            <small>Illustrative opportunity</small>
+
+            <em>High</em>
+          </article>
+
+          <article className="ai-insight-card informational">
+            <span>Coverage Context</span>
+
+            <strong>
+              {currencyFormatter.format(totalInsuranceCoverage)}
+            </strong>
+
+            <small>Demo insurance coverage</small>
+
+            <em>Informational</em>
+          </article>
         </div>
       </section>
 
@@ -131,7 +201,9 @@ function AIAnalyst() {
         <section className="ai-chat-panel">
           <div className="ai-chat-header">
             <div>
-              <span className="eyebrow">CRFIS INTELLIGENCE ENGINE</span>
+              <span className="eyebrow">
+                CRFIS INTELLIGENCE ENGINE
+              </span>
 
               <h2>Ask the Analyst</h2>
             </div>
