@@ -2,6 +2,7 @@ import type { Risk } from '../types/risk'
 import type { Remediation } from '../types/remediation'
 import type { InsurancePolicy } from '../types/insurance'
 import type { Scenario } from '../types/scenario'
+import type { Asset } from '../types/asset'
 
 export function calculateTotalExposure(risks: Risk[]): number {
   return risks.reduce((total, risk) => total + risk.exposure, 0)
@@ -115,6 +116,14 @@ export function calculateTotalScenarioImpact(
 ): number {
   return scenarios.reduce(
     (total, scenario) => total + scenario.estimatedImpact,
+    0,
+  )
+}
+export function calculateTotalAssetValue(
+  assets: Asset[],
+): number {
+  return assets.reduce(
+    (total, asset) => total + asset.annualValue,
     0,
   )
 }

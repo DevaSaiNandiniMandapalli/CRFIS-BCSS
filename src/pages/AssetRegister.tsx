@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { demoAssets } from '../data/demoAssets'
+import {
+  calculateTotalAssetValue,
+} from '../utils/financialMetrics'
 import type {
   AssetCriticality,
   AssetStatus,
@@ -16,8 +19,10 @@ function AssetRegister() {
   const [search, setSearch] = useState('')
   const [criticality, setCriticality] =
     useState<AssetCriticality | 'All'>('All')
-  const [status, setStatus] = useState<AssetStatus | 'All'>('All')
-  const [type, setType] = useState<AssetType | 'All'>('All')
+  const [status, setStatus] =
+    useState<AssetStatus | 'All'>('All')
+  const [type, setType] =
+    useState<AssetType | 'All'>('All')
 
   const filteredAssets = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -30,13 +35,16 @@ function AssetRegister() {
         asset.owner.toLowerCase().includes(query)
 
       const matchesCriticality =
-        criticality === 'All' || asset.criticality === criticality
+        criticality === 'All' ||
+        asset.criticality === criticality
 
       const matchesStatus =
-        status === 'All' || asset.status === status
+        status === 'All' ||
+        asset.status === status
 
       const matchesType =
-        type === 'All' || asset.type === type
+        type === 'All' ||
+        asset.type === type
 
       return (
         matchesSearch &&
@@ -59,10 +67,8 @@ function AssetRegister() {
     (asset) => asset.status === 'Under Review',
   ).length
 
-  const totalAnnualValue = demoAssets.reduce(
-    (total, asset) => total + asset.annualValue,
-    0,
-  )
+  const totalAnnualValue =
+    calculateTotalAssetValue(demoAssets)
 
   const clearFilters = () => {
     setSearch('')
@@ -87,12 +93,15 @@ function AssetRegister() {
           </div>
 
           <p>
-            Enterprise assets and business-critical resources tracked
-            for cybersecurity risk analysis.
+            Enterprise assets and business-critical resources
+            tracked for cybersecurity risk analysis.
           </p>
         </div>
 
-        <button className="primary-button" type="button">
+        <button
+          className="primary-button"
+          type="button"
+        >
           + Add Asset
         </button>
       </div>
@@ -124,7 +133,9 @@ function AssetRegister() {
 
         <article className="risk-kpi exposure-kpi">
           <span>DEMO ANNUAL VALUE</span>
-          <strong>{currencyFormatter.format(totalAnnualValue)}</strong>
+          <strong>
+            {currencyFormatter.format(totalAnnualValue)}
+          </strong>
           <small>Fictional placeholder value</small>
         </article>
       </div>
@@ -136,9 +147,10 @@ function AssetRegister() {
           <strong>Demonstration environment</strong>
 
           <p>
-            All assets and financial values on this screen are fictional
-            placeholder data for CRFIS interface development. They are
-            not real company assets or financial valuations.
+            All assets and financial values on this screen are
+            fictional placeholder data for CRFIS interface
+            development. They are not real company assets or
+            financial valuations.
           </p>
         </div>
       </div>
@@ -151,7 +163,9 @@ function AssetRegister() {
             type="search"
             placeholder="Search assets, business units, owners..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             aria-label="Search assets"
           />
         </label>
@@ -175,7 +189,9 @@ function AssetRegister() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(event.target.value as AssetStatus | 'All')
+            setStatus(
+              event.target.value as AssetStatus | 'All',
+            )
           }
           aria-label="Filter by status"
         >
@@ -183,23 +199,33 @@ function AssetRegister() {
           <option value="At Risk">At Risk</option>
           <option value="Monitored">Monitored</option>
           <option value="Healthy">Healthy</option>
-          <option value="Under Review">Under Review</option>
+          <option value="Under Review">
+            Under Review
+          </option>
         </select>
 
         <select
           value={type}
           onChange={(event) =>
-            setType(event.target.value as AssetType | 'All')
+            setType(
+              event.target.value as AssetType | 'All',
+            )
           }
           aria-label="Filter by asset type"
         >
           <option value="All">All Asset Types</option>
-          <option value="Infrastructure">Infrastructure</option>
-          <option value="Application">Application</option>
+          <option value="Infrastructure">
+            Infrastructure
+          </option>
+          <option value="Application">
+            Application
+          </option>
           <option value="Data">Data</option>
           <option value="Cloud">Cloud</option>
           <option value="Endpoint">Endpoint</option>
-          <option value="Third Party">Third Party</option>
+          <option value="Third Party">
+            Third Party
+          </option>
         </select>
 
         {hasFilters && (
@@ -219,12 +245,14 @@ function AssetRegister() {
             <strong>Asset Inventory</strong>
 
             <span>
-              Showing {filteredAssets.length} of {demoAssets.length}{' '}
-              demo assets
+              Showing {filteredAssets.length} of{' '}
+              {demoAssets.length} demo assets
             </span>
           </div>
 
-          <span className="table-demo-label">PLACEHOLDER DATA</span>
+          <span className="table-demo-label">
+            PLACEHOLDER DATA
+          </span>
         </div>
 
         <div className="risk-table-scroll">
@@ -264,7 +292,9 @@ function AssetRegister() {
                   </td>
 
                   <td className="financial-value">
-                    {currencyFormatter.format(asset.annualValue)}
+                    {currencyFormatter.format(
+                      asset.annualValue,
+                    )}
                   </td>
 
                   <td>
@@ -290,7 +320,8 @@ function AssetRegister() {
                       </strong>
 
                       <span>
-                        Try changing the search or filter selections.
+                        Try changing the search or filter
+                        selections.
                       </span>
 
                       <button
