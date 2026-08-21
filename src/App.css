@@ -2,15 +2,12 @@
   --blue: #1261a8;
   --blue-dark: #0a3d6b;
   --orange: #f28c28;
-
   --ink: #122033;
   --muted: #66758a;
   --line: #dce4ed;
-
   --surface: #ffffff;
   --surface-soft: #f4f7fa;
   --background: #eef2f6;
-
   --shadow: 0 4px 14px rgba(24, 47, 70, 0.04);
 }
 
@@ -41,6 +38,10 @@ button:focus-visible {
   outline: 3px solid rgba(242, 140, 40, 0.45);
   outline-offset: 2px;
 }
+
+/* =========================
+   APPLICATION
+========================= */
 
 .crfis-app {
   min-height: 100vh;
@@ -514,6 +515,16 @@ td strong {
   color: #a55a00;
 }
 
+.severity.medium {
+  background: #fff7cc;
+  color: #806500;
+}
+
+.severity.low {
+  background: #e7f1fb;
+  color: #1261a8;
+}
+
 /* =========================
    INTELLIGENCE PANEL
 ========================= */
@@ -556,6 +567,58 @@ td strong {
 }
 
 /* =========================
+   PLACEHOLDER MODULE PAGES
+========================= */
+
+.placeholder-page {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.placeholder-page h2 {
+  margin: 16px 0 8px;
+  font-size: 30px;
+  color: var(--ink);
+}
+
+.placeholder-page > p {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 13px;
+}
+
+.placeholder-card {
+  margin-top: 28px;
+  padding: 18px 20px;
+  border-left: 3px solid var(--orange);
+  background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.placeholder-card strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.placeholder-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* =========================
    FOOTER
 ========================= */
 
@@ -575,10 +638,10 @@ html[data-theme="dark"] {
   --ink: #edf4fb;
   --muted: #a9bac9;
   --line: #2d4358;
-
   --surface: #10283d;
   --surface-soft: #17364e;
   --background: #071a2b;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 html[data-theme="dark"],
@@ -600,7 +663,8 @@ html[data-theme="dark"] .topbar {
 
 html[data-theme="dark"] .metric-card,
 html[data-theme="dark"] .risk-panel,
-html[data-theme="dark"] .intelligence-panel {
+html[data-theme="dark"] .intelligence-panel,
+html[data-theme="dark"] .placeholder-page {
   background: var(--surface);
   border-color: var(--line);
   color: var(--ink);
@@ -610,14 +674,18 @@ html[data-theme="dark"] .metric-card strong,
 html[data-theme="dark"] td strong,
 html[data-theme="dark"] .topbar h1,
 html[data-theme="dark"] .section-header h2,
-html[data-theme="dark"] .intelligence-panel h2 {
+html[data-theme="dark"] .intelligence-panel h2,
+html[data-theme="dark"] .placeholder-page h2,
+html[data-theme="dark"] .placeholder-card strong {
   color: var(--ink);
 }
 
 html[data-theme="dark"] .metric-card > span,
 html[data-theme="dark"] td,
 html[data-theme="dark"] .metric-trend,
-html[data-theme="dark"] .intelligence-panel p {
+html[data-theme="dark"] .intelligence-panel p,
+html[data-theme="dark"] .placeholder-page > p,
+html[data-theme="dark"] .placeholder-card span {
   color: var(--muted);
 }
 
@@ -656,6 +724,10 @@ html[data-theme="dark"] .intelligence-icon {
 
 html[data-theme="dark"] .status-pill {
   background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .placeholder-card {
+  background: var(--surface-soft);
 }
 
 html[data-theme="dark"] .secondary-button:hover,
@@ -753,6 +825,11 @@ html[data-theme="dark"] footer {
   .intelligence-panel .secondary-button {
     margin-left: 60px;
   }
+
+  .placeholder-page {
+    min-height: 420px;
+    padding: 30px 24px;
+  }
 }
 
 /* =========================
@@ -784,8 +861,53 @@ html[data-theme="dark"] footer {
     font-size: 22px;
   }
 
+  .placeholder-page {
+    min-height: 360px;
+    padding: 24px 18px;
+  }
+
+  .placeholder-page h2 {
+    font-size: 24px;
+  }
+
   footer {
     flex-direction: column;
     gap: 6px;
+  }
+}
+
+/* =========================
+   LARGE DISPLAYS / TV
+========================= */
+
+@media (min-width: 1800px) {
+  .sidebar {
+    width: 280px;
+    padding-inline: 22px;
+  }
+
+  .content {
+    max-width: 1700px;
+    padding: 40px 46px;
+  }
+
+  .topbar {
+    padding-inline: 46px;
+  }
+
+  .metric-card {
+    padding: 24px;
+  }
+
+  .metric-card strong {
+    font-size: 34px;
+  }
+
+  .welcome {
+    padding: 34px;
+  }
+
+  .welcome h2 {
+    font-size: 32px;
   }
 }
