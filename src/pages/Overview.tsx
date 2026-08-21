@@ -1,6 +1,13 @@
 import { demoRisks } from '../data/demoRisks'
 import { demoRemediations } from '../data/demoRemediations'
-import { calculateTotalExposure, calculateRemediationOpportunity } from '../utils/financialMetrics'
+import {
+  calculateTotalExposure,
+  calculateRemediationOpportunity,
+  calculateRemediationCost,
+  calculateNetRemediationBenefit,
+  calculateReductionToCostRatio,
+  calculateRemainingExposure,
+} from '../utils/financialMetrics'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US', {
@@ -19,6 +26,27 @@ function Overview() {
 
   const remediationOpportunity =
     calculateRemediationOpportunity(demoRemediations)
+
+  const remediationCost =
+    calculateRemediationCost(demoRemediations)
+
+  const netRemediationBenefit =
+    calculateNetRemediationBenefit(demoRemediations)
+
+  const reductionToCostRatio =
+    calculateReductionToCostRatio(demoRemediations)
+
+  const remainingExposure =
+    calculateRemainingExposure(demoRisks, demoRemediations)
+
+  /*
+   * CRFIS demo ALE assumption:
+   * 25% of total financial exposure.
+   *
+   * This is an illustrative demonstration metric,
+   * not a production loss model.
+   */
+  const annualizedLossExpectancy = totalExposure * 0.25
 
   return (
     <>
@@ -42,7 +70,9 @@ function Overview() {
       <section className="metrics" aria-label="Financial risk metrics">
         <article className="metric-card">
           <span>Total Financial Exposure</span>
+
           <strong>{formatCurrency(totalExposure)}</strong>
+
           <small>DEMO / PLACEHOLDER</small>
 
           <div className="metric-trend">
@@ -52,17 +82,23 @@ function Overview() {
 
         <article className="metric-card">
           <span>Annualized Loss Expectancy</span>
-          <strong>$640K</strong>
-          <small>DEMO / PLACEHOLDER</small>
+
+          <strong>{formatCurrency(annualizedLossExpectancy)}</strong>
+
+          <small>DEMO / ILLUSTRATIVE MODEL</small>
 
           <div className="metric-trend">
-            Illustrative ALE
+            25% illustrative exposure factor
           </div>
         </article>
 
         <article className="metric-card accent">
           <span>Critical Risks</span>
-          <strong>{String(criticalRisks).padStart(2, '0')}</strong>
+
+          <strong>
+            {String(criticalRisks).padStart(2, '0')}
+          </strong>
+
           <small>DEMO / PLACEHOLDER</small>
 
           <div className="metric-trend">
@@ -72,11 +108,73 @@ function Overview() {
 
         <article className="metric-card">
           <span>Remediation Opportunity</span>
-          <strong>{formatCurrency(remediationOpportunity)}</strong>
+
+          <strong>
+            {formatCurrency(remediationOpportunity)}
+          </strong>
+
           <small>DEMO / PLACEHOLDER</small>
 
           <div className="metric-trend">
             Potential exposure reduction
+          </div>
+        </article>
+      </section>
+
+      <section className="metrics" aria-label="Remediation financial metrics">
+        <article className="metric-card">
+          <span>Remaining Demo Exposure</span>
+
+          <strong>
+            {formatCurrency(remainingExposure)}
+          </strong>
+
+          <small>DEMO / ILLUSTRATIVE</small>
+
+          <div className="metric-trend">
+            Exposure after modeled reductions
+          </div>
+        </article>
+
+        <article className="metric-card">
+          <span>Remediation Cost</span>
+
+          <strong>
+            {formatCurrency(remediationCost)}
+          </strong>
+
+          <small>DEMO / PLACEHOLDER</small>
+
+          <div className="metric-trend">
+            Estimated implementation cost
+          </div>
+        </article>
+
+        <article className="metric-card">
+          <span>Net Remediation Benefit</span>
+
+          <strong>
+            {formatCurrency(netRemediationBenefit)}
+          </strong>
+
+          <small>DEMO / ILLUSTRATIVE</small>
+
+          <div className="metric-trend">
+            Reduction minus remediation cost
+          </div>
+        </article>
+
+        <article className="metric-card">
+          <span>Reduction / Cost Ratio</span>
+
+          <strong>
+            {reductionToCostRatio.toFixed(2)}x
+          </strong>
+
+          <small>DEMO / ILLUSTRATIVE</small>
+
+          <div className="metric-trend">
+            Expected reduction per $1 of cost
           </div>
         </article>
       </section>
@@ -105,36 +203,42 @@ function Overview() {
             </thead>
 
             <tbody>
-              {demoRisks.slice(0, 3).map((risk) => (
-                <tr key={risk.id}>
-                  <td>
-                    <strong>{risk.risk}</strong>
-                  </td>
+              {demoRisks
+                .slice()
+                .sort((a, b) => b.exposure - a.exposure)
+                .slice(0, 3)
+                .map((risk) => (
+                  <tr key={risk.id}>
+                    <td>
+                      <strong>{risk.risk}</strong>
+                    </td>
 
-                  <td>{risk.asset}</td>
+                    <td>{risk.asset}</td>
 
-                  <td>
-                    <span
-                      className={`severity ${risk.severity.toLowerCase()}`}
-                    >
-                      {risk.severity}
-                    </span>
-                  </td>
+                    <td>
+                      <span
+                        className={`severity ${risk.severity.toLowerCase()}`}
+                      >
+                        {risk.severity}
+                      </span>
+                    </td>
 
-                  <td>
-                    {formatCurrency(risk.exposure)}
-                  </td>
+                    <td>
+                      {formatCurrency(risk.exposure)}
+                    </td>
 
-                  <td>{risk.status}</td>
-                </tr>
-              ))}
+                    <td>{risk.status}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
       </section>
 
       <section className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon">
+          ↗
+        </div>
 
         <div>
           <span className="eyebrow">
@@ -149,6 +253,18 @@ function Overview() {
             CRFIS connects cybersecurity findings, asset criticality,
             probability, financial loss, remediation cost, and business
             context into one decision-ready view.
+          </p>
+
+          <p>
+            Current demo modeling indicates{' '}
+            <strong>
+              {formatCurrency(remediationOpportunity)}
+            </strong>{' '}
+            of potential exposure reduction against{' '}
+            <strong>
+              {formatCurrency(remediationCost)}
+            </strong>{' '}
+            of illustrative remediation cost.
           </p>
         </div>
       </section>
