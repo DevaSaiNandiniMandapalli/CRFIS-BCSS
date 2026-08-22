@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Asset {
+  id           String   @id
+  name         String
+  type         String
+  businessUnit String
+  criticality  String
+  annualValue  Decimal  @db.Decimal(18, 2)
+  status       String
+  owner        String
+  lastUpdated  DateTime
+
+  risks               Risk[]
+  remediations        Remediation[]
+  scenarios           Scenario[]
+  insurancePolicyLinks InsurancePolicyAsset[]
+
+  @@index([criticality])
+  @@index([status])
+  @@index([businessUnit])
+}
+
+model Risk {
+  id          String   @id
+  risk        String
+  assetId     String
+  category    String
+  severity    String
+  likelihood  String
+  exposure    Decimal  @db.Decimal(18, 2)
+  status      String
+  owner       String
+  lastUpdated DateTime
+
+  asset         Asset          @relation(fields: [assetId], references: [id])
+  remediations  Remediation[]
+  scenarios     Scenario[]
+  auditFindings AuditFinding[]
+
+  @@index([assetId])
+  @@index([severity])
+  @@index([status])
+  @@index([category])
+}
+
+model Remediation {
+  id                String   @id
+  action            String
+  riskId            String
+  assetId           String
+  category          String
+  priority          String
+  owner             String
+  dueDate           DateTime
+  status            String
+  estimatedCost     Decimal  @db.Decimal(18, 2)
+  expectedReduction Decimal  @db.Decimal(18, 2)
+
+  risk          Risk           @relation(fields: [riskId], references: [id])
+  asset         Asset          @relation(fields: [assetId], references: [id])
+  auditFindings AuditFinding[]
+
+  @@index([riskId])
+  @@index([assetId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+model Scenario {
+  id              String   @id
+  name            String
+  category        String
+  description     String
+  riskId          String
+  assetId         String
+  severity        String
+  probability     String
+  estimatedImpact Decimal  @db.Decimal(18, 2)
+  businessImpact  String
+  status          String
+  owner           String
+
+  risk  Risk  @relation(fields: [riskId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([riskId])
+  @@index([assetId])
+  @@index([severity])
+  @@index([status])
+}
+
+model InsurancePolicy {
+  id             String   @id
+  policyNumber   String
+  provider       String
+  coverageType   String
+  coverageLimit  Decimal  @db.Decimal(18, 2)
+  deductible     Decimal  @db.Decimal(18, 2)
+  premium        Decimal  @db.Decimal(18, 2)
+  expirationDate DateTime
+  status         String
+  notes          String?
+
+  assetLinks InsurancePolicyAsset[]
+
+  @@index([status])
+  @@index([expirationDate])
+  @@index([coverageType])
+}
+
+model InsurancePolicyAsset {
+  policyId String
+  assetId  String
+
+  policy InsurancePolicy @relation(fields: [policyId], references: [id])
+  asset  Asset          @relation(fields: [assetId], references: [id])
+
+  @@id([policyId, assetId])
+  @@index([assetId])
+}
+
+model Audit {
+  id        String   @id
+  framework String
+  scope     String
+  status    String
+  owner     String
+  dueDate   DateTime
+
+  findings AuditFinding[]
+
+  @@index([status])
+  @@index([framework])
+  @@index([dueDate])
+}
+
+model AuditFinding {
+  id             String   @id
+  auditId        String
+  riskId         String?
+  remediationId  String?
+  description    String
+  severity       String
+  status         String
+  owner          String
+  dueDate        DateTime
+
+  audit        Audit        @relation(fields: [auditId], references: [id])
+  risk         Risk?        @relation(fields: [riskId], references: [id])
+  remediation  Remediation? @relation(fields: [remediationId], references: [id])
+
+  @@index([auditId])
+  @@index([riskId])
+  @@index([remediationId])
+  @@index([severity])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Report {
+  id          String   @id
+  name        String
+  type        String
+  period      String
+  status      String
+  generatedAt DateTime
+  owner       String
+
+  @@index([status])
+  @@index([type])
+  @@index([generatedAt])
+}
