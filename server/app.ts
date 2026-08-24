@@ -10,6 +10,17 @@ import { reportRoutes } from './routes/reports.js'
 import { overviewRoutes } from './routes/overview.js'
 import { closePrisma } from './repositories/prisma.js'
 import { errorHandlingPlugin } from './plugins/error-handler.js'
+import { authSeamPlugin } from './plugins/auth-seam.js'
+
+/*
+ * DEVELOPMENT / READ-ONLY BUILD.
+ *
+ * No authentication or authorization is configured. Every route below is a
+ * public read endpoint over the development database. The auth-seam plugin
+ * reserves the request user slot for the dedicated authentication phase;
+ * until that phase lands, `requireAuth` rejects any route that tries to use
+ * it. Do not deploy this build outside local development.
+ */
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -19,6 +30,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   await app.register(errorHandlingPlugin)
+  await app.register(authSeamPlugin)
 
   await app.register(healthRoutes)
   await app.register(assetRoutes)
