@@ -7,6 +7,9 @@
     "dev": "vite",
     "dev:api": "tsx watch --env-file=.env server/index.ts",
     "build": "tsc -b && vite build",
+    "build:api": "tsc -p tsconfig.server.build.json",
+    "start:api": "node --env-file=.env dist-server/server/index.js",
+    "test:api": "node --import tsx --test server/plugins/error-handler.test.ts server/schemas/query.test.ts server/utils/serialize.test.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,9 +17,11 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "fastify": "^5.12.1",
+    "fastify-plugin": "^6.0.0",
     "pg": "^8.23.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
