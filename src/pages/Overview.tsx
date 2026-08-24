@@ -1,48 +1,49 @@
-import { demoRisks } from '../data/demoRisks'
-import { demoRemediations } from '../data/demoRemediations'
-import { toMoney } from '../types/money'
-import {
-  calculateTotalExposure,
-  calculateRemediationOpportunity,
-  calculateRemediationCost,
-  calculateNetRemediationBenefit,
-  calculateReductionToCostRatio,
-  calculateRemainingExposure,
-  calculateAnnualizedLossExpectancy,
-} from '../utils/financialMetrics'
+import { useMemo } from 'react'
+import { useApiResource } from '../hooks/useApiResource'
 import { formatMoneyOrDash, formatRatio, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import type { CurrencyCode } from '../types/money'
+import type { OverviewResponse, RiskListResponse } from '../types/api'
+import type { RiskDto } from '../types/api'
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(
+  buckets: Record<string, string> | null | undefined,
+): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) => formatMoneyOrDash(toMoney(amount, currency as CurrencyCode)))
+    .join('  +  ')
+}
+
+/** Renders per-currency ratios (unitless), keeping currencies separate. */
+function formatRatioBuckets(buckets: Record<string, number> | null | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries.map(([currency, ratio]) => `${currency} ${formatRatio(ratio)}`).join('  +  ')
+}
 
 function Overview() {
-  const totalExposure = calculateTotalExposure(demoRisks)
+  const overviewUrl = '/api/overview'
 
-  const criticalRisks = demoRisks.filter(
-    (risk) => risk.severity === 'Critical',
-  ).length
+  // Priority exposures: top real risks by exposure.
+  const risksUrl = '/api/risks?pageSize=3&sort=exposure&order=desc'
 
-  const remediationOpportunity =
-    calculateRemediationOpportunity(demoRemediations)
+  const { data: overviewData, loading, error, reload } =
+    useApiResource<OverviewResponse>(overviewUrl)
 
-  const remediationCost =
-    calculateRemediationCost(demoRemediations)
+  const { data: riskPage } = useApiResource<RiskListResponse>(risksUrl)
 
-  const netRemediationBenefit =
-    calculateNetRemediationBenefit(demoRemediations)
-
-  const reductionToCostRatio =
-    calculateReductionToCostRatio(demoRemediations)
-
-  const remainingExposure =
-    calculateRemainingExposure(demoRisks, demoRemediations)
-
-  /*
-   * CRFIS demo ALE assumption:
-   * 25% of total financial exposure.
-   *
-   * This is an illustrative demonstration metric,
-   * not a production loss model.
-   */
-  const annualizedLossExpectancy =
-    calculateAnnualizedLossExpectancy(demoRisks)
+  const topRisks = useMemo(() => riskPage?.data ?? [], [riskPage])
 
   return (
     <>
@@ -50,7 +51,7 @@ function Overview() {
         <div>
           <span className="status-pill">
             <span className="status-dot" />
-            DEMO ENVIRONMENT
+            LIVE ENVIRONMENT
           </span>
 
           <h2>Financial Risk Intelligence</h2>
@@ -63,227 +64,254 @@ function Overview() {
         </div>
       </section>
 
-      <section className="kpi-grid" aria-label="Financial risk metrics">
-        <article className="kpi-card">
-          <span className="kpi-label">Total Financial Exposure</span>
-
-          <strong className="kpi-value">
-            {formatMoneyOrDash(totalExposure)}
-          </strong>
-
-          <small className="kpi-note">Demo / placeholder</small>
-
-          <div className="kpi-trend">
-            Illustrative exposure
+      {loading && (
+        <section aria-label="Loading overview">
+          <div className="state-block loading-state" role="status">
+            <span className="state-icon" aria-hidden="true">◐</span>
+            <strong>Loading executive overview...</strong>
           </div>
-        </article>
+        </section>
+      )}
 
-        <article className="kpi-card">
-          <span className="kpi-label">Annualized Loss Expectancy</span>
+      {!loading && error && (
+        <section className="notice">
+          <span className="notice-icon" aria-hidden="true">!</span>
 
-          <strong className="kpi-value">
-            {formatMoneyOrDash(annualizedLossExpectancy)}
-          </strong>
+          <div>
+            <strong>Executive overview could not be loaded.</strong>
 
-          <small className="kpi-note">Demo / illustrative model</small>
+            <p>{error}</p>
 
-          <div className="kpi-trend">
-            25% illustrative exposure factor
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={reload}
+            >
+              Retry
+            </button>
           </div>
-        </article>
+        </section>
+      )}
 
-        <article className="kpi-card accent">
-          <span className="kpi-label">Critical Risks</span>
+      {!loading && !error && overviewData && (
+        <>
+          <section className="kpi-grid" aria-label="Financial risk metrics">
+            <article className="kpi-card">
+              <span className="kpi-label">Total Financial Exposure</span>
 
-          <strong className="kpi-value">{criticalRisks}</strong>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.exposureByCurrency)}
+              </strong>
 
-          <small className="kpi-note">Requires attention</small>
+              <small className="kpi-note">Risk register, per currency</small>
 
-          <div className="kpi-trend">
-            Demo / placeholder count
-          </div>
-        </article>
+              <div className="kpi-trend">
+                {overviewData.riskCount} risks on record
+              </div>
+            </article>
 
-        <article className="kpi-card">
-          <span className="kpi-label">Remediation Opportunity</span>
+            <article className="kpi-card">
+              <span className="kpi-label">Annualized Loss Expectancy</span>
 
-          <strong className="kpi-value">
-            {formatMoneyOrDash(remediationOpportunity)}
-          </strong>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.annualizedLossExpectancyByCurrency)}
+              </strong>
 
-          <small className="kpi-note">Demo / placeholder</small>
+              <small className="kpi-note">Illustrative 25% exposure factor</small>
 
-          <div className="kpi-trend">
-            Potential exposure reduction
-          </div>
-        </article>
-      </section>
+              <div className="kpi-trend">
+                Not a production loss model
+              </div>
+            </article>
 
-      <section
-        className="kpi-grid"
-        aria-label="Remediation financial metrics"
-      >
-        <article className="kpi-card">
-          <span className="kpi-label">Remaining Demo Exposure</span>
+            <article className="kpi-card accent">
+              <span className="kpi-label">Critical Risks</span>
 
-          <strong className="kpi-value">
-            {formatMoneyOrDash(remainingExposure)}
-          </strong>
+              <strong className="kpi-value">{overviewData.criticalRiskCount}</strong>
 
-          <small className="kpi-note">Demo / illustrative</small>
+              <small className="kpi-note">Requires attention</small>
 
-          <div className="kpi-trend">
-            Exposure after modeled reductions
-          </div>
-        </article>
+              <div className="kpi-trend">
+                Live severity counts
+              </div>
+            </article>
 
-        <article className="kpi-card">
-          <span className="kpi-label">Remediation Cost</span>
+            <article className="kpi-card">
+              <span className="kpi-label">Remediation Opportunity</span>
 
-          <strong className="kpi-value">
-            {formatMoneyOrDash(remediationCost)}
-          </strong>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.remediationOpportunityByCurrency)}
+              </strong>
 
-          <small className="kpi-note">Demo / placeholder</small>
+              <small className="kpi-note">Expected reduction, per currency</small>
 
-          <div className="kpi-trend">
-            Estimated implementation cost
-          </div>
-        </article>
+              <div className="kpi-trend">
+                {overviewData.openRemediationCount} open actions
+              </div>
+            </article>
+          </section>
 
-        <article className="kpi-card">
-          <span className="kpi-label">Net Remediation Benefit</span>
+          <section
+            className="kpi-grid"
+            aria-label="Remediation financial metrics"
+          >
+            <article className="kpi-card">
+              <span className="kpi-label">Remaining Exposure</span>
 
-          <strong className="kpi-value">
-            {formatMoneyOrDash(netRemediationBenefit)}
-          </strong>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.remainingExposureByCurrency)}
+              </strong>
 
-          <small className="kpi-note">Demo / illustrative</small>
+              <small className="kpi-note">Per currency after reductions</small>
 
-          <div className="kpi-trend">
-            Reduction minus remediation cost
-          </div>
-        </article>
+              <div className="kpi-trend">
+                Exposure minus modeled reduction
+              </div>
+            </article>
 
-        <article className="kpi-card">
-          <span className="kpi-label">Reduction / Cost Ratio</span>
+            <article className="kpi-card">
+              <span className="kpi-label">Remediation Cost</span>
 
-          <strong className="kpi-value">
-            {formatRatio(reductionToCostRatio)}
-          </strong>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.remediationCostByCurrency)}
+              </strong>
 
-          <small className="kpi-note">Demo / illustrative</small>
+              <small className="kpi-note">Estimated implementation cost</small>
 
-          <div className="kpi-trend">
-            Expected reduction per unit of cost
-          </div>
-        </article>
-      </section>
+              <div className="kpi-trend">
+                Per currency
+              </div>
+            </article>
 
-      <section className="section-header">
-        <div>
-          <span className="eyebrow">
-            PRIORITY EXPOSURES
-          </span>
+            <article className="kpi-card">
+              <span className="kpi-label">Net Remediation Benefit</span>
 
-          <h2>Risk Summary</h2>
-        </div>
-      </section>
+              <strong className="kpi-value">
+                {formatCurrencyBuckets(overviewData.netRemediationBenefitByCurrency)}
+              </strong>
 
-      <section className="data-panel">
-        <div className="data-table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Risk</th>
-                <th scope="col">Asset</th>
-                <th scope="col">Severity</th>
-                <th scope="col" className="money">
-                  Estimated Exposure
-                </th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
+              <small className="kpi-note">Reduction minus cost, per currency</small>
 
-            <tbody>
-              {demoRisks
-                .slice()
-                .sort((a, b) => b.exposure - a.exposure)
-                .slice(0, 3)
-                .map((risk) => (
-                  <tr key={risk.id}>
-                    <td>
-                      <div className="cell-stack">
-                        <strong>{risk.risk}</strong>
-                      </div>
-                    </td>
+              <div className="kpi-trend">
+                Never mixed across currencies
+              </div>
+            </article>
 
-                    <td>{risk.asset}</td>
+            <article className="kpi-card">
+              <span className="kpi-label">Reduction / Cost Ratio</span>
 
-                    <td>
-                      <span
-                        className={`badge badge--${slugify(risk.severity)}`}
-                      >
-                        {risk.severity}
-                      </span>
-                    </td>
+              <strong className="kpi-value">
+                {formatRatioBuckets(overviewData.reductionCostRatioByCurrency)}
+              </strong>
 
-                    <td className="money">
-                      {formatMoneyOrDash(
-                        toMoney(risk.exposure, risk.currency),
-                      )}
-                    </td>
+              <small className="kpi-note">Expected reduction per unit of cost</small>
 
-                    <td>{risk.status}</td>
+              <div className="kpi-trend">
+                Computed within each currency
+              </div>
+            </article>
+          </section>
+
+          <section className="section-header">
+            <div>
+              <span className="eyebrow">
+                PRIORITY EXPOSURES
+              </span>
+
+              <h2>Risk Summary</h2>
+            </div>
+          </section>
+
+          <section className="data-panel">
+            <div className="data-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Risk</th>
+                    <th scope="col">Asset</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col" className="money">
+                      Estimated Exposure
+                    </th>
+                    <th scope="col">Status</th>
                   </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </thead>
 
-      <section className="intelligence-panel">
-        <div className="intelligence-icon" aria-hidden="true">
-          ↗
-        </div>
+                <tbody>
+                  {topRisks.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>
+                        <EmptyState
+                          title="No risks recorded yet."
+                          message="The CRFIS database does not contain any risks yet."
+                        />
+                      </td>
+                    </tr>
+                  )}
 
-        <div>
-          <span className="eyebrow">
-            EXECUTIVE INTELLIGENCE
-          </span>
+                  {topRisks.map((risk: RiskDto) => (
+                    <tr key={risk.id}>
+                      <td>
+                        <div className="cell-stack">
+                          <strong>{risk.risk}</strong>
+                        </div>
+                      </td>
 
-          <h2>
-            From technical findings to financial decisions.
-          </h2>
+                      <td>{risk.asset?.name ?? 'Unknown asset'}</td>
 
-          <p>
-            Current demo modeling indicates a total exposure of{' '}
-            <strong>{formatMoneyOrDash(totalExposure)}</strong>, with{' '}
-            <strong>{criticalRisks}</strong> critical risks requiring
-            attention.
-          </p>
+                      <td>
+                        <span
+                          className={`badge badge--${slugify(risk.severity)}`}
+                        >
+                          {risk.severity}
+                        </span>
+                      </td>
 
-          <p>
-            The modeled remediation portfolio represents{' '}
-            <strong>{formatMoneyOrDash(remediationOpportunity)}</strong> of
-            potential exposure reduction against an estimated implementation
-            cost of{' '}
-            <strong>{formatMoneyOrDash(remediationCost)}</strong>.
-          </p>
+                      <td className="money">
+                        {formatMoneyOrDash(toMoney(risk.exposure, risk.currency))}
+                      </td>
 
-          <p>
-            That produces an illustrative net benefit of{' '}
-            <strong>{formatMoneyOrDash(netRemediationBenefit)}</strong> and a{' '}
-            <strong>{formatRatio(reductionToCostRatio)}</strong>{' '}
-            reduction-to-cost ratio.
-          </p>
+                      <td>{risk.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-          <p className="disclaimer">
-            These figures are demonstration calculations only and are not
-            production financial, actuarial, security, or risk assessments.
-          </p>
-        </div>
-      </section>
+          <section className="intelligence-panel">
+            <div className="intelligence-icon" aria-hidden="true">
+              ↗
+            </div>
+
+            <div>
+              <span className="eyebrow">
+                EXECUTIVE INTELLIGENCE
+              </span>
+
+              <h2>
+                From technical findings to financial decisions.
+              </h2>
+
+              <p>
+                CRFIS connects cybersecurity findings, asset
+                criticality, probability, financial loss,
+                remediation cost, and business context into one
+                decision-ready view. All monetary aggregates are
+                reported per currency and are never combined across
+                currencies.
+              </p>
+
+              <p className="disclaimer">
+                Figures are computed live from the CRFIS database. The
+                annualized loss expectancy uses an illustrative 25% factor
+                and is not a production financial, actuarial, security, or
+                risk assessment.
+              </p>
+            </div>
+          </section>
+        </>
+      )}
     </>
   )
 }

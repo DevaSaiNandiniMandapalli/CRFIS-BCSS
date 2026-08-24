@@ -208,3 +208,31 @@ export type ReportListResponse = {
   data: ReportDto[]
   meta: ListMeta
 }
+
+export interface OverviewResponse {
+  generatedAt: string
+  exposureByCurrency: Record<string, string> | null
+  annualizedLossExpectancyByCurrency: Record<string, string> | null
+  criticalRiskCount: number
+  riskCount: number
+  remediationOpportunityByCurrency: Record<string, string> | null
+  remediationCostByCurrency: Record<string, string> | null
+  netRemediationBenefitByCurrency: Record<string, string> | null
+  remainingExposureByCurrency: Record<string, string> | null
+  reductionCostRatioByCurrency: Record<string, number> | null
+  openRemediationCount: number
+  overdueRemediationCount: number
+  totalAssetValueByCurrency: Record<string, string> | null
+  assetCount: number
+  highValueAssetCount: number
+  insuranceCoverageByCurrency: Record<string, string> | null
+  insurancePremiumByCurrency: Record<string, string> | null
+  insuranceDeductibleByCurrency: Record<string, string> | null
+  policyCount: number
+  coverageGapByCurrency: Record<string, string> | null
+  scenarioImpactByCurrency: Record<string, string> | null
+  scenarioCount: number
+  auditProgramCount: number
+  auditFindingsTotal: number
+  highCriticalFindings: number
+}
