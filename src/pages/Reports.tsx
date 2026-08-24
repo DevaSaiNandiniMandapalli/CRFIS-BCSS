@@ -28,10 +28,7 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 }
 
 /** Renders per-currency totals without ever mixing currencies. */
-function formatCurrencyBuckets(
-  buckets: Record<string, string> | undefined,
-  currencyType: CurrencyCode,
-): string {
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
   const entries = Object.entries(buckets ?? {})
 
   if (entries.length === 0) {
@@ -39,7 +36,7 @@ function formatCurrencyBuckets(
   }
 
   return entries
-    .map(([currency, amount]) => formatMoneyOrDash(toMoney(amount, currency as currencyType)))
+    .map(([currency, amount]) => formatMoneyOrDash(toMoney(amount, currency as CurrencyCode)))
     .join('  +  ')
 }
 
@@ -180,7 +177,6 @@ function Reports() {
             <strong className="kpi-value">
               {formatCurrencyBuckets(
                 risksStats.data?.meta.stats.exposureByCurrency,
-                'USD',
               )}
             </strong>
 
@@ -203,7 +199,6 @@ function Reports() {
             <strong className="kpi-value">
               {formatCurrencyBuckets(
                 remediationsStats.data?.meta.stats.expectedReductionByCurrency,
-                'USD',
               )}
             </strong>
 
@@ -216,7 +211,6 @@ function Reports() {
             <strong className="kpi-value">
               {formatCurrencyBuckets(
                 insuranceStats.data?.meta.stats.coverageLimitByCurrency,
-                'USD',
               )}
             </strong>
 
