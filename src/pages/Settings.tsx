@@ -74,8 +74,10 @@ function Settings() {
           <h2>Settings</h2>
 
           <p>
-            Configure CRFIS workspace preferences, risk thresholds,
-            governance controls, and AI decision-support behavior.
+            Local configuration for CRFIS workspace preferences, risk
+            thresholds, governance controls, and AI decision-support
+            behavior. Settings are stored in this browser only; no server
+            persistence or production-system control exists yet.
           </p>
         </div>
 
@@ -105,12 +107,13 @@ function Settings() {
         <div className="notice-icon" aria-hidden="true">i</div>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Local configuration only</strong>
 
           <p>
-            These configuration values are local demonstration
-            settings. They do not change production risk calculations,
-            security controls, or connected enterprise systems.
+            These values are stored in this browser for demonstration and
+            planning purposes. They do not change production risk
+            calculations, security controls, or connected enterprise
+            systems, and no authentication governs them yet.
           </p>
         </div>
       </section>
