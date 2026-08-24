@@ -1,14 +1,9 @@
 import { useState } from 'react'
 import { demoAnalystMessages } from '../data/demoAnalyst'
-import { demoRisks } from '../data/demoRisks'
-import { demoRemediations } from '../data/demoRemediations'
-import { demoInsurance } from '../data/demoInsurance'
 import type { AnalystMessage } from '../types/aiAnalyst'
-import { toMoney } from '../types/money'
-import {
-  calculateRemediationOpportunity,
-  calculateTotalInsuranceCoverage,
-} from '../utils/financialMetrics'
+import { useApiResource } from '../hooks/useApiResource'
+import type { AiAnalysisResponse } from '../types/api'
+import { toMoney, type CurrencyCode } from '../types/money'
 import { formatMoneyOrDash } from '../utils/format'
 
 const suggestedQuestions = [
@@ -24,28 +19,58 @@ function AIAnalyst() {
 
   const [input, setInput] = useState('')
 
-  const highestExposureRisk = demoRisks
-    .slice()
-    .sort((a, b) => b.exposure - a.exposure)[0]
+  // Deterministic, clearly-labelled analysis from live CRFIS statistics.
+  const {
+    data: analysisData,
+    loading: analysisLoading,
+    error: analysisError,
+    reload: reloadAnalysis,
+  } = useApiResource<AiAnalysisResponse>('/api/ai/analysis')
 
-  const priorityRisk = demoRisks
-    .slice()
-    .sort((a, b) => {
-      const severityRank = {
-        Critical: 4,
-        High: 3,
-        Medium: 2,
-        Low: 1,
-      }
+  const insights = analysisData?.data.insights ?? []
 
-      return severityRank[b.severity] - severityRank[a.severity]
-    })[0]
+  function insightById(id: string) {
+    return insights.find((insight) => insight.id === id)
+  }
 
-  const remediationOpportunity =
-    calculateRemediationOpportunity(demoRemediations)
+  function firstItemValue(id: string): string {
+    const insight = insightById(id)
+    const item = insight?.items?.[0]
 
-  const totalInsuranceCoverage =
-    calculateTotalInsuranceCoverage(demoInsurance)
+    if (!item || item.amount === undefined || item.currency === undefined) {
+      return '—'
+    }
+
+    return formatMoneyOrDash(toMoney(item.amount, item.currency))
+  }
+
+  const highestExposureCard = {
+    value: analysisLoading ? '…' : firstItemValue('highest-exposure-risks'),
+    small:
+      insightById('highest-exposure-risks')?.items?.[0]?.label ??
+      'No risks on record',
+  }
+
+  const criticalCount = insightById('critical-risk-count')?.count ?? 0
+
+  const reductionCard = {
+    value: analysisLoading ? '…' : firstItemValue('greatest-expected-reduction'),
+    small:
+      insightById('greatest-expected-reduction')?.items?.[0]?.label ??
+      'No remediation actions on record',
+  }
+
+  const coverageBuckets = insightById('insurance-coverage')?.buckets
+  const coverageValue =
+    analysisLoading
+      ? '…'
+      : Object.entries(coverageBuckets ?? {}).length === 0
+        ? '—'
+        : Object.entries(coverageBuckets ?? {})
+            .map(([currency, amount]) =>
+              formatMoneyOrDash(toMoney(amount, currency as CurrencyCode)),
+            )
+            .join('  +  ')
 
   const handleSuggestedQuestion = (question: string) => {
     setInput(question)
@@ -138,64 +163,73 @@ function AIAnalyst() {
             <span className="eyebrow">RISK INTELLIGENCE</span>
             <h2>Executive Signals</h2>
           </div>
+
+          <span className="chip chip--muted">DETERMINISTIC ANALYSIS</span>
         </div>
 
-        <div className="ai-insight-grid">
-          <article
-            className={`ai-insight-card ${highestExposureRisk.severity.toLowerCase()}`}
-          >
-            <span>Highest Exposure</span>
+        {analysisError && (
+          <div className="notice">
+            <span className="notice-icon" aria-hidden="true">!</span>
 
-            <strong>
-              {formatMoneyOrDash(
-                toMoney(
-                  highestExposureRisk.exposure,
-                  highestExposureRisk.currency,
-                ),
-              )}
-            </strong>
+            <div>
+              <strong>Analysis could not be loaded.</strong>
 
-            <small>{highestExposureRisk.risk}</small>
+              <p>{analysisError}</p>
 
-            <em>{highestExposureRisk.severity}</em>
-          </article>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={reloadAnalysis}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
-          <article
-            className={`ai-insight-card ${priorityRisk.severity.toLowerCase()}`}
-          >
-            <span>Priority Risk</span>
+        {!analysisError && (
+          <div className="ai-insight-grid">
+            <article className="ai-insight-card critical">
+              <span>Highest Exposure</span>
 
-            <strong>{priorityRisk.severity}</strong>
+              <strong>{highestExposureCard.value}</strong>
 
-            <small>{priorityRisk.asset}</small>
+              <small>{highestExposureCard.small}</small>
 
-            <em>{priorityRisk.severity}</em>
-          </article>
+              <em>LIVE DATA</em>
+            </article>
 
-          <article className="ai-insight-card high">
-            <span>Remediation Focus</span>
+            <article className="ai-insight-card high">
+              <span>Critical Risks</span>
 
-            <strong>
-              {formatMoneyOrDash(remediationOpportunity)}
-            </strong>
+              <strong>{criticalCount}</strong>
 
-            <small>Illustrative opportunity</small>
+              <small>Live severity counts</small>
 
-            <em>High</em>
-          </article>
+              <em>LIVE DATA</em>
+            </article>
 
-          <article className="ai-insight-card informational">
-            <span>Coverage Context</span>
+            <article className="ai-insight-card high">
+              <span>Top Reduction Action</span>
 
-            <strong>
-              {formatMoneyOrDash(totalInsuranceCoverage)}
-            </strong>
+              <strong>{reductionCard.value}</strong>
 
-            <small>Demo insurance coverage</small>
+              <small>{reductionCard.small}</small>
 
-            <em>Informational</em>
-          </article>
-        </div>
+              <em>LIVE DATA</em>
+            </article>
+
+            <article className="ai-insight-card informational">
+              <span>Insurance Coverage</span>
+
+              <strong>{coverageValue}</strong>
+
+              <small>Policy limits, per currency</small>
+
+              <em>LIVE DATA</em>
+            </article>
+          </div>
+        )}
       </section>
 
       <div className="ai-workspace">

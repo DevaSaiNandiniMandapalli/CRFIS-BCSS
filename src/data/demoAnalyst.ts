@@ -1,24 +1,20 @@
 import type { AnalystMessage } from '../types/aiAnalyst'
-import type { Money } from '../types/money'
-import { formatMoney } from '../utils/format'
 
 /*
- * Demo conversation fixtures.
+ * Demo conversation fixtures for the AI Analyst chat surface.
  *
- * Financial figures inside narrative text are generated from structured
- * Money values through the shared formatter - currency symbols are never
- * baked into fixture strings.
+ * The chat itself is a local demonstration (no external AI provider is
+ * connected), so messages contain no financial figures that could be
+ * mistaken for real data. Deterministic numeric insights are served by
+ * GET /api/ai/analysis instead.
  */
-
-const ransomwareExposure: Money = { amount: '1250000', currency: 'USD' }
-const dataExfiltrationExposure: Money = { amount: '760000', currency: 'USD' }
 
 export const demoAnalystMessages: AnalystMessage[] = [
   {
     id: 'MSG-001',
     role: 'assistant',
     content:
-      'Welcome to the CRFIS AI Analyst. I can help interpret cyber risk, financial exposure, remediation priorities, scenarios, and insurance coverage using the information available in the platform.',
+      'Welcome to the CRFIS AI Analyst demonstration. I can walk through how the platform interprets cyber risk, financial exposure, remediation priorities, scenarios, and insurance coverage once real records exist.',
     timestamp: '09:00',
     isDemo: true,
   },
@@ -33,7 +29,8 @@ export const demoAnalystMessages: AnalystMessage[] = [
   {
     id: 'MSG-003',
     role: 'assistant',
-    content: `Based on the current demonstration dataset, Ransomware Exposure represents the largest individual exposure at ${formatMoney(ransomwareExposure)}, followed by Customer Data Exfiltration at ${formatMoney(dataExfiltrationExposure)}. These values are fictional placeholders and are not production risk calculations.`,
+    content:
+      'This build does not connect an external AI provider, and I will not invent figures. Live exposure rankings are produced deterministically from database statistics - see the Executive Signals panel above, which always reflects current CRFIS records.',
     timestamp: '09:02',
     isDemo: true,
   },

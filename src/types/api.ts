@@ -236,3 +236,31 @@ export interface OverviewResponse {
   auditFindingsTotal: number
   highCriticalFindings: number
 }
+
+export interface AiAnalysisItem {
+  id: string
+  label: string
+  currency?: string
+  amount?: string
+}
+
+export type AiAnalysisInsight = {
+  id: string
+  title: string
+  kind: 'buckets' | 'count' | 'items'
+  buckets?: Record<string, string>
+  count?: number
+  items?: AiAnalysisItem[]
+  note: string
+}
+
+export type AiAnalysisResponse = {
+  data: {
+    mode: 'deterministic'
+    provider: 'local-rule-based'
+    humanInTheLoop: true
+    disclaimer: string
+    generatedAt: string
+    insights: AiAnalysisInsight[]
+  }
+}
