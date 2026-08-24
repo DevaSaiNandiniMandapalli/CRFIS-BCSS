@@ -41,7 +41,7 @@ function AIAnalyst() {
       return '—'
     }
 
-    return formatMoneyOrDash(toMoney(item.amount, item.currency))
+    return formatMoneyOrDash(toMoney(item.amount, item.currency as CurrencyCode))
   }
 
   const highestExposureCard = {
