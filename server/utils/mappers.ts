@@ -295,6 +295,7 @@ export interface AuditRecord {
   owner: string
   dueDate: DateInput
   // Prisma aggregate via include({ _count: { select: { findings: true } } }).
+  // findings is NOT a database scalar - it is always the relation count.
   _count?: { findings: number } | null
 }
 
@@ -323,6 +324,7 @@ export function mapAudit(audit: AuditRecord): MappedAudit {
 export interface AuditFindingRecord {
   id: string
   auditId: string
+  audit?: { id: string } | null
   riskId: string | null
   remediationId: string | null
   description: string
@@ -330,13 +332,19 @@ export interface AuditFindingRecord {
   status: string
   owner: string
   dueDate: DateInput
+  // Optional relations resolved via include() when requested.
+  risk?: { id: string; risk: string } | null
+  remediation?: { id: string } | null
 }
 
 export interface MappedAuditFinding {
   id: string
   auditId: string
+  audit: { id: string } | null
   riskId: string | null
+  risk: { id: string; risk: string } | null
   remediationId: string | null
+  remediation: { id: string } | null
   description: string
   severity: string
   status: string
@@ -348,8 +356,13 @@ export function mapAuditFinding(finding: AuditFindingRecord): MappedAuditFinding
   return {
     id: finding.id,
     auditId: finding.auditId,
+    audit: finding.audit ? { id: finding.audit.id } : null,
     riskId: finding.riskId,
+    risk: finding.risk ? { id: finding.risk.id, risk: finding.risk.risk } : null,
     remediationId: finding.remediationId,
+    remediation: finding.remediation
+      ? { id: finding.remediation.id }
+      : null,
     description: finding.description,
     severity: finding.severity,
     status: finding.status,

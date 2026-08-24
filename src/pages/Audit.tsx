@@ -1,108 +1,116 @@
 import { useMemo, useState } from 'react'
-import { demoAudits } from '../data/demoAudits'
-import { calculateTotalAuditFindings } from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatDate, formatPercent, slugify } from '../utils/format'
-import { EmptyState } from '../components/States'
+import type {
+  AuditDto,
+  AuditFindingListResponse,
+  AuditListResponse,
+} from '../types/api'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
 
-const statuses = [
+const PAGE_SIZE = 20
+const FINDINGS_PAGE_SIZE = 25
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+const AUDIT_STATUSES = [
   'All Statuses',
   'Completed',
   'Under Review',
   'In Progress',
   'Planned',
   'Overdue',
-]
+] as const
 
-const frameworks = [
+const FRAMEWORKS = [
   'All Frameworks',
   'ISO 27001',
   'NIST CSF',
   'COBIT',
   'SOC 2',
   'CIS Controls',
-]
-
-const findings = [
-  {
-    id: 'FND-001',
-    finding: 'Privileged access review requires remediation',
-    severity: 'High',
-    audit: 'AUD-001',
-    owner: 'Security Governance',
-    dueDate: '2026-09-10',
-    status: 'Open',
-  },
-  {
-    id: 'FND-002',
-    finding: 'Application security evidence is incomplete',
-    severity: 'Medium',
-    audit: 'AUD-002',
-    owner: 'Risk Management',
-    dueDate: '2026-09-18',
-    status: 'Under Review',
-  },
-  {
-    id: 'FND-003',
-    finding: 'Data governance control requires review',
-    severity: 'Critical',
-    audit: 'AUD-003',
-    owner: 'Data Governance',
-    dueDate: '2026-09-05',
-    status: 'Open',
-  },
-]
+] as const
 
 function Audit() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All Statuses')
-  const [frameworkFilter, setFrameworkFilter] =
-    useState('All Frameworks')
+  const [frameworkFilter, setFrameworkFilter] = useState('All Frameworks')
+  const [page, setPage] = useState(1)
 
-  const filteredAudits = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  const debouncedSearch = useDebouncedValue(search)
 
-    return demoAudits.filter((audit) => {
-      const matchesSearch =
-        !query ||
-        audit.id.toLowerCase().includes(query) ||
-        audit.framework.toLowerCase().includes(query) ||
-        audit.scope.toLowerCase().includes(query) ||
-        audit.owner.toLowerCase().includes(query)
-
-      const matchesStatus =
-        statusFilter === 'All Statuses' ||
-        audit.status === statusFilter
-
-      const matchesFramework =
-        frameworkFilter === 'All Frameworks' ||
-        audit.framework === frameworkFilter
-
-      return matchesSearch && matchesStatus && matchesFramework
+  const auditsUrl = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      status: statusFilter === 'All Statuses' ? undefined : statusFilter,
+      framework: frameworkFilter === 'All Frameworks' ? undefined : frameworkFilter,
     })
-  }, [search, statusFilter, frameworkFilter])
 
-  const totalAudits = demoAudits.length
+    return `/api/audits?${query}`
+  }, [page, debouncedSearch, statusFilter, frameworkFilter])
 
-  const totalFindings =
-    calculateTotalAuditFindings(demoAudits)
+  // Priority findings: cross-audit read ordered by due date.
+  const findingsUrl = `/api/audit-findings?${buildQuery({
+    page: 1,
+    pageSize: FINDINGS_PAGE_SIZE,
+    sort: 'dueDate',
+    order: 'asc',
+  })}`
 
-  const completedAudits = demoAudits.filter(
-    (audit) => audit.status === 'Completed',
-  ).length
+  const {
+    data: auditData,
+    loading,
+    error,
+    reload,
+  } = useApiResource<AuditListResponse>(auditsUrl)
 
-  const highCriticalFindings = findings.filter(
-    (finding) =>
-      finding.severity === 'High' ||
-      finding.severity === 'Critical',
-  ).length
+  const {
+    data: findingData,
+    loading: findingsLoading,
+    error: findingsError,
+    reload: reloadFindings,
+  } = useApiResource<AuditFindingListResponse>(findingsUrl)
 
-  const overdueAudits = demoAudits.filter(
-    (audit) => audit.status === 'Overdue',
-  ).length
+  const audits = auditData?.data ?? []
+  const meta = auditData?.meta
+  const stats = meta?.stats
+  const findings = findingData?.data ?? []
 
-  const evidenceCompletion = Math.round(
-    (completedAudits / totalAudits) * 100,
-  )
+  const completedAudits = stats?.byStatus['Completed'] ?? 0
+  const totalAudits = meta?.total ?? 0
+  const evidenceCompletion =
+    totalAudits > 0 ? Math.round((completedAudits / totalAudits) * 100) : 0
+
+  const clearFilters = () => {
+    setSearch('')
+    setStatusFilter('All Statuses')
+    setFrameworkFilter('All Frameworks')
+    setPage(1)
+  }
+
+  const hasFilters =
+    search !== '' ||
+    statusFilter !== 'All Statuses' ||
+    frameworkFilter !== 'All Frameworks'
+
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showAuditContent = !loading && !error
 
   return (
     <div className="page">
@@ -115,7 +123,7 @@ function Audit() {
           <div className="page-title-row">
             <h2>Audit</h2>
 
-            <span className="chip">DEMO DATA</span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -132,9 +140,9 @@ function Audit() {
           <strong>Demonstration environment</strong>
 
           <p>
-            Audit records, findings, dates, and governance metrics on
-            this screen are fictional placeholder data for CRFIS
-            interface development.
+            Audits and findings are served live from the CRFIS database
+            through the read-only API. The findings number is the live
+            relation count per audit, not a stored scalar.
           </p>
         </div>
       </section>
@@ -145,7 +153,7 @@ function Audit() {
 
           <strong className="kpi-value">{totalAudits}</strong>
 
-          <small className="kpi-note">Demo / calculated</small>
+          <small className="kpi-note">Matching current filters</small>
 
           <div className="kpi-trend">
             Audit programs tracked
@@ -153,26 +161,26 @@ function Audit() {
         </article>
 
         <article className="kpi-card">
-          <span className="kpi-label">Open Findings</span>
+          <span className="kpi-label">Findings</span>
 
-          <strong className="kpi-value">{totalFindings}</strong>
+          <strong className="kpi-value">{stats?.findingsTotal ?? 0}</strong>
 
-          <small className="kpi-note">Demo / calculated</small>
+          <small className="kpi-note">Across filtered audits</small>
 
           <div className="kpi-trend">
-            Findings across audit programs
+            Live relation count
           </div>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">High / Critical Findings</span>
 
-          <strong className="kpi-value">{highCriticalFindings}</strong>
+          <strong className="kpi-value">{stats?.highCriticalFindings ?? 0}</strong>
 
-          <small className="kpi-note">Demo / calculated</small>
+          <small className="kpi-note">Priority governance items</small>
 
           <div className="kpi-trend">
-            Priority governance items
+            Severity-filtered count
           </div>
         </article>
 
@@ -183,22 +191,22 @@ function Audit() {
             {formatPercent(evidenceCompletion)}
           </strong>
 
-          <small className="kpi-note">Demo / illustrative</small>
+          <small className="kpi-note">Completed / total audits</small>
 
           <div className="kpi-trend">
-            Completed audit programs
+            Illustrative proxy metric
           </div>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Overdue Actions</span>
 
-          <strong className="kpi-value">{overdueAudits}</strong>
+          <strong className="kpi-value">{stats?.byStatus['Overdue'] ?? 0}</strong>
 
-          <small className="kpi-note">Demo / calculated</small>
+          <small className="kpi-note">Requires attention</small>
 
           <div className="kpi-trend">
-            Requires attention
+            Overdue audit programs
           </div>
         </article>
       </section>
@@ -211,8 +219,8 @@ function Audit() {
         </div>
 
         <span className="table-count">
-          Showing {filteredAudits.length} of {demoAudits.length} demo
-          audits
+          Showing {audits.length} of {totalAudits} audits · page{' '}
+          {meta?.page ?? 1} of {meta?.pageCount ?? 1}
         </span>
       </section>
 
@@ -224,19 +232,20 @@ function Audit() {
             type="search"
             placeholder="Search audits..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setSearchAndReset(event.target.value)}
             aria-label="Search audits"
           />
         </label>
 
         <select
           value={statusFilter}
-          onChange={(event) =>
+          onChange={(event) => {
             setStatusFilter(event.target.value)
-          }
+            setPage(1)
+          }}
           aria-label="Filter audits by status"
         >
-          {statuses.map((status) => (
+          {AUDIT_STATUSES.map((status) => (
             <option key={status} value={status}>
               {status}
             </option>
@@ -245,17 +254,28 @@ function Audit() {
 
         <select
           value={frameworkFilter}
-          onChange={(event) =>
+          onChange={(event) => {
             setFrameworkFilter(event.target.value)
-          }
+            setPage(1)
+          }}
           aria-label="Filter audits by framework"
         >
-          {frameworks.map((framework) => (
+          {FRAMEWORKS.map((framework) => (
             <option key={framework} value={framework}>
               {framework}
             </option>
           ))}
         </select>
+
+        {hasFilters && (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={clearFilters}
+          >
+            Clear
+          </button>
+        )}
       </section>
 
       <section className="data-panel">
@@ -276,8 +296,66 @@ function Audit() {
             </thead>
 
             <tbody>
-              {filteredAudits.length > 0 ? (
-                filteredAudits.map((audit) => (
+              {loading && (
+                <tr>
+                  <td colSpan={7}>
+                    <LoadingState title="Loading audits..." />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && error && (
+                <tr>
+                  <td colSpan={7}>
+                    <ErrorState
+                      title="Audits could not be loaded."
+                      message={error}
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={reload}
+                        >
+                          Retry
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showAuditContent && audits.length === 0 && (
+                <tr>
+                  <td colSpan={7}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No audits match the selected filters.'
+                          : 'No audits recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any audit programs yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showAuditContent &&
+                audits.map((audit: AuditDto) => (
                   <tr key={audit.id}>
                     <td>
                       <strong>{audit.id}</strong>
@@ -288,9 +366,7 @@ function Audit() {
                     <td>{audit.scope}</td>
 
                     <td>
-                      <span
-                        className={`badge badge--${slugify(audit.status)}`}
-                      >
+                      <span className={`badge badge--${slugify(audit.status)}`}>
                         {audit.status}
                       </span>
                     </td>
@@ -301,30 +377,50 @@ function Audit() {
 
                     <td>{formatDate(audit.dueDate)}</td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7}>
-                    <EmptyState
-                      title="No demo audits match the selected filters."
-                    />
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showAuditContent && totalAudits > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="section-header">
         <div>
           <span className="eyebrow">AUDIT FINDINGS</span>
 
-          <h2>Priority Findings</h2>
+          <h2>Recorded Findings</h2>
         </div>
 
         <span className="table-count">
-          {findings.length} demo findings
+          Showing {(findingData?.data.length ?? 0)} of{' '}
+          {findingData?.meta.total ?? 0} findings
         </span>
       </section>
 
@@ -343,39 +439,78 @@ function Audit() {
             </thead>
 
             <tbody>
-              {findings.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <strong>{item.finding}</strong>
-
-                    <span className="table-secondary">
-                      {item.id}
-                    </span>
-                  </td>
-
-                  <td>
-                    <span
-                      className={`badge badge--${slugify(item.severity)}`}
-                    >
-                      {item.severity}
-                    </span>
-                  </td>
-
-                  <td>{item.audit}</td>
-
-                  <td>{item.owner}</td>
-
-                  <td>{formatDate(item.dueDate)}</td>
-
-                  <td>
-                    <span
-                      className={`badge badge--${slugify(item.status)}`}
-                    >
-                      {item.status}
-                    </span>
+              {findingsLoading && (
+                <tr>
+                  <td colSpan={6}>
+                    <LoadingState title="Loading findings..." />
                   </td>
                 </tr>
-              ))}
+              )}
+
+              {!findingsLoading && findingsError && (
+                <tr>
+                  <td colSpan={6}>
+                    <ErrorState
+                      title="Findings could not be loaded."
+                      message={findingsError}
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={reloadFindings}
+                        >
+                          Retry
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {!findingsLoading &&
+                !findingsError &&
+                findings.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>
+                      <EmptyState
+                        title="No findings recorded yet."
+                        message="The CRFIS database does not contain any audit findings yet."
+                      />
+                    </td>
+                  </tr>
+                )}
+
+              {!findingsLoading &&
+                !findingsError &&
+                findings.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.description}</strong>
+
+                      <span className="table-secondary">
+                        {item.id}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className={`badge badge--${slugify(item.severity)}`}>
+                        {item.severity}
+                      </span>
+                    </td>
+
+                    <td>{item.auditId}</td>
+
+                    <td>{item.owner}</td>
+
+                    <td>{formatDate(item.dueDate)}</td>
+
+                    <td>
+                      <span className={`badge badge--${slugify(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

@@ -152,3 +152,44 @@ export interface InsuranceListResponse {
   data: InsurancePolicyDto[]
   meta: ListMeta & { stats: InsuranceListStats }
 }
+
+export interface AuditDto {
+  id: string
+  framework: string
+  scope: string
+  status: string
+  findings: number
+  owner: string
+  dueDate: string
+}
+
+export interface AuditListStats {
+  byStatus: Record<string, number>
+  findingsTotal: number
+  highCriticalFindings: number
+}
+
+export interface AuditListResponse {
+  data: AuditDto[]
+  meta: ListMeta & { stats: AuditListStats }
+}
+
+export interface AuditFindingDto {
+  id: string
+  auditId: string
+  audit: { id: string } | null
+  riskId: string | null
+  risk: { id: string; risk: string } | null
+  remediationId: string | null
+  remediation: { id: string } | null
+  description: string
+  severity: string
+  status: string
+  owner: string
+  dueDate: string
+}
+
+export type AuditFindingListResponse = {
+  data: AuditFindingDto[]
+  meta: ListMeta
+}
