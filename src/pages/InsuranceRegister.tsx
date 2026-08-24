@@ -1,20 +1,45 @@
 import { useMemo, useState } from 'react'
-import { demoInsurance } from '../data/demoInsurance'
-import { demoAssets } from '../data/demoAssets'
-import { demoRisks } from '../data/demoRisks'
-import {
-  calculateTotalInsuranceCoverage,
-  calculateTotalInsurancePremium,
-  calculateTotalInsuranceDeductible,
-  calculateInsuranceCoverageGap,
-} from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
 import { toMoney } from '../types/money'
-import { EmptyState } from '../components/States'
+import type {
+  InsuranceListResponse,
+  InsurancePolicyDto,
+} from '../types/api'
 import type {
   InsuranceCoverageType,
   InsuranceStatus,
 } from '../types/insurance'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
+
+const PAGE_SIZE = 20
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) =>
+      formatMoneyOrDash(toMoney(amount, currency as InsurancePolicyDto['currency'])),
+    )
+    .join('  +  ')
+}
 
 function InsuranceRegister() {
   const [search, setSearch] = useState('')
@@ -22,66 +47,34 @@ function InsuranceRegister() {
     useState<InsuranceStatus | 'All'>('All')
   const [coverageType, setCoverageType] =
     useState<InsuranceCoverageType | 'All'>('All')
+  const [page, setPage] = useState(1)
 
-  const assetById = useMemo(
-    () => new Map(demoAssets.map((asset) => [asset.id, asset])),
-    [],
-  )
+  const debouncedSearch = useDebouncedValue(search)
 
-  const filteredPolicies = useMemo(() => {
-    const query = search.trim().toLowerCase()
-
-    return demoInsurance.filter((policy) => {
-      const assetNames = policy.assetIds
-        .map((assetId) => assetById.get(assetId)?.name ?? assetId)
-        .join(' ')
-
-      const matchesSearch =
-        !query ||
-        policy.policyNumber.toLowerCase().includes(query) ||
-        policy.provider.toLowerCase().includes(query) ||
-        policy.coverageType.toLowerCase().includes(query) ||
-        assetNames.toLowerCase().includes(query)
-
-      const matchesStatus =
-        status === 'All' || policy.status === status
-
-      const matchesCoverage =
-        coverageType === 'All' ||
-        policy.coverageType === coverageType
-
-      return matchesSearch && matchesStatus && matchesCoverage
+  const url = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      status: status === 'All' ? undefined : status,
+      coverageType: coverageType === 'All' ? undefined : coverageType,
     })
-  }, [search, status, coverageType, assetById])
 
-  const activeCount = demoInsurance.filter(
-    (policy) => policy.status === 'Active',
-  ).length
+    return `/api/insurance?${query}`
+  }, [page, debouncedSearch, status, coverageType])
 
-  const expiringCount = demoInsurance.filter(
-    (policy) => policy.status === 'Expiring Soon',
-  ).length
+  const { data, loading, error, reload } =
+    useApiResource<InsuranceListResponse>(url)
 
-  const reviewCount = demoInsurance.filter(
-    (policy) => policy.status === 'Under Review',
-  ).length
-
-  const totalCoverage =
-    calculateTotalInsuranceCoverage(demoInsurance)
-
-  const totalPremium =
-    calculateTotalInsurancePremium(demoInsurance)
-
-  const totalDeductible =
-    calculateTotalInsuranceDeductible(demoInsurance)
-
-  const coverageGap =
-    calculateInsuranceCoverageGap(demoRisks, demoInsurance)
+  const policies = data?.data ?? []
+  const meta = data?.meta
+  const stats = meta?.stats
 
   const clearFilters = () => {
     setSearch('')
     setStatus('All')
     setCoverageType('All')
+    setPage(1)
   }
 
   const hasFilters =
@@ -89,13 +82,31 @@ function InsuranceRegister() {
     status !== 'All' ||
     coverageType !== 'All'
 
+  // Any filter change returns the user to the first page.
+  const updateFilter = <T,>(
+    setter: (value: T) => void,
+  ) =>
+    (value: T) => {
+      setter(value)
+      setPage(1)
+    }
+
+  const setStatusAndReset = updateFilter(setStatus)
+  const setCoverageAndReset = updateFilter(setCoverageType)
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showTableContent = !loading && !error
+
   return (
     <section className="page">
       <header className="page-intro">
         <div className="page-intro-text">
           <div className="page-title-row">
             <h2>Insurance Portfolio</h2>
-            <span className="chip">DEMO DATA</span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -112,36 +123,42 @@ function InsuranceRegister() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Active Policies</span>
-          <strong className="kpi-value">{activeCount}</strong>
-          <small className="kpi-note">Demo / placeholder</small>
+          <strong className="kpi-value">
+            {stats?.byStatus['Active'] ?? 0}
+          </strong>
+          <small className="kpi-note">Matching current filters</small>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">Expiring Soon</span>
-          <strong className="kpi-value">{expiringCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Expiring Soon'] ?? 0}
+          </strong>
           <small className="kpi-note">Requires attention</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Under Review</span>
-          <strong className="kpi-value">{reviewCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Under Review'] ?? 0}
+          </strong>
           <small className="kpi-note">Coverage assessment</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Total Coverage</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalCoverage)}
+            {formatCurrencyBuckets(stats?.coverageLimitByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Annual Premium</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalPremium)}
+            {formatCurrencyBuckets(stats?.premiumByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
       </div>
 
@@ -149,13 +166,13 @@ function InsuranceRegister() {
         <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Connected to the CRFIS database</strong>
 
           <p>
-            All insurance policies, coverage limits, premiums,
-            deductibles, and dates on this screen are fictional
-            placeholder data for CRFIS interface development.
-            They are not real insurance policies or coverage advice.
+            Policies are served live from the CRFIS database through the
+            read-only API with covered assets resolved through the policy
+            join table. Monetary amounts keep their record currency; no
+            conversion is applied.
           </p>
         </div>
       </div>
@@ -166,9 +183,9 @@ function InsuranceRegister() {
 
           <input
             type="search"
-            placeholder="Search policies, providers, coverage, assets..."
+            placeholder="Search policies, providers, coverage..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setSearchAndReset(event.target.value)}
             aria-label="Search insurance policies"
           />
         </label>
@@ -176,7 +193,7 @@ function InsuranceRegister() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(event.target.value as InsuranceStatus | 'All')
+            setStatusAndReset(event.target.value as InsuranceStatus | 'All')
           }
           aria-label="Filter by policy status"
         >
@@ -190,7 +207,7 @@ function InsuranceRegister() {
         <select
           value={coverageType}
           onChange={(event) =>
-            setCoverageType(
+            setCoverageAndReset(
               event.target.value as InsuranceCoverageType | 'All',
             )
           }
@@ -225,13 +242,14 @@ function InsuranceRegister() {
             <strong>Insurance Inventory</strong>
 
             <span>
-              Showing {filteredPolicies.length} of{' '}
-              {demoInsurance.length} demo policies
+              Showing {policies.length} of{' '}
+              {meta?.total ?? 0} policies · page{' '}
+              {meta?.page ?? 1} of {meta?.pageCount ?? 1}
             </span>
           </div>
 
           <span className="chip chip--muted">
-            PLACEHOLDER DATA
+            LIVE DATABASE
           </span>
         </div>
 
@@ -255,82 +273,148 @@ function InsuranceRegister() {
             </thead>
 
             <tbody>
-              {filteredPolicies.map((policy) => (
-                <tr key={policy.id}>
-                  <td>
-                    <div className="cell-stack">
-                      <strong>{policy.policyNumber}</strong>
-                      <span>{policy.id}</span>
-                    </div>
-                  </td>
-
-                  <td>{policy.provider}</td>
-
-                  <td>{policy.coverageType}</td>
-
-                  <td className="money">
-                    {formatMoneyOrDash(
-                      toMoney(policy.coverageLimit, policy.currency),
-                    )}
-                  </td>
-
-                  <td className="money">
-                    {formatMoneyOrDash(
-                      toMoney(policy.deductible, policy.currency),
-                    )}
-                  </td>
-
-                  <td>{formatDate(policy.expirationDate)}</td>
-
-                  <td>
-                    <span
-                      className={`badge badge--${slugify(policy.status)}`}
-                    >
-                      {policy.status}
-                    </span>
-                  </td>
-
-                  <td>
-                    <div className="cell-stack">
-                      <strong>
-                        {policy.assetIds.length} assets
-                      </strong>
-
-                      <span>
-                        {policy.assetIds
-                          .map(
-                            (assetId) =>
-                              assetById.get(assetId)?.name ?? assetId,
-                          )
-                          .join(', ')}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredPolicies.length === 0 && (
+              {loading && (
                 <tr>
                   <td colSpan={8}>
-                    <EmptyState
-                      title="No policies match the current filters."
-                      message="Try changing the search or filter selections."
+                    <LoadingState title="Loading policies..." />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && error && (
+                <tr>
+                  <td colSpan={8}>
+                    <ErrorState
+                      title="Insurance policies could not be loaded."
+                      message={error}
                       action={
                         <button
                           className="secondary-button"
                           type="button"
-                          onClick={clearFilters}
+                          onClick={reload}
                         >
-                          Clear filters
+                          Retry
                         </button>
                       }
                     />
                   </td>
                 </tr>
               )}
+
+              {showTableContent && policies.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No policies match the current filters.'
+                          : 'No insurance policies recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any policies yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent &&
+                policies.map((policy) => (
+                  <tr key={policy.id}>
+                    <td>
+                      <div className="cell-stack">
+                        <strong>{policy.policyNumber}</strong>
+                        <span>{policy.id}</span>
+                      </div>
+                    </td>
+
+                    <td>{policy.provider}</td>
+
+                    <td>{policy.coverageType}</td>
+
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(policy.coverageLimit, policy.currency),
+                      )}
+                    </td>
+
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(policy.deductible, policy.currency),
+                      )}
+                    </td>
+
+                    <td>{formatDate(policy.expirationDate)}</td>
+
+                    <td>
+                      <span
+                        className={`badge badge--${slugify(policy.status)}`}
+                      >
+                        {policy.status}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="cell-stack">
+                        <strong>
+                          {policy.coveredAssets} assets
+                        </strong>
+
+                        <span>
+                          {policy.assets
+                            .map((asset) => asset.name)
+                            .join(', ') || 'None'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showTableContent && (meta?.total ?? 0) > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="intelligence-panel">
@@ -354,26 +438,18 @@ function InsuranceRegister() {
 
         <div className="intelligence-metrics">
           <div className="intelligence-metric">
-            <span>DEMO TOTAL COVERAGE</span>
+            <span>TOTAL COVERAGE</span>
 
             <strong>
-              {formatMoneyOrDash(totalCoverage)}
+              {formatCurrencyBuckets(stats?.coverageLimitByCurrency)}
             </strong>
           </div>
 
           <div className="intelligence-metric">
-            <span>DEMO TOTAL DEDUCTIBLE</span>
+            <span>TOTAL DEDUCTIBLE</span>
 
             <strong>
-              {formatMoneyOrDash(totalDeductible)}
-            </strong>
-          </div>
-
-          <div className="intelligence-metric">
-            <span>DEMO COVERAGE GAP</span>
-
-            <strong>
-              {formatMoneyOrDash(coverageGap)}
+              {formatCurrencyBuckets(stats?.deductibleByCurrency)}
             </strong>
           </div>
         </div>

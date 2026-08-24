@@ -123,3 +123,32 @@ export interface ScenarioListResponse {
   data: ScenarioDto[]
   meta: ListMeta & { stats: ScenarioListStats }
 }
+
+export interface InsurancePolicyDto {
+  id: string
+  policyNumber: string
+  provider: string
+  coverageType: string
+  currency: CurrencyCode
+  coverageLimit: string
+  deductible: string
+  premium: string
+  expirationDate: string
+  status: string
+  notes: string | null
+  assetIds: string[]
+  coveredAssets: number
+  assets: Array<{ id: string; name: string }>
+}
+
+export interface InsuranceListStats {
+  byStatus: Record<string, number>
+  coverageLimitByCurrency: Record<string, string>
+  premiumByCurrency: Record<string, string>
+  deductibleByCurrency: Record<string, string>
+}
+
+export interface InsuranceListResponse {
+  data: InsurancePolicyDto[]
+  meta: ListMeta & { stats: InsuranceListStats }
+}

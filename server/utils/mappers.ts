@@ -1,12 +1,10 @@
-import { dateToIso, decimalToNumber, decimalToString, type MoneyInput } from './serialize.js'
+import { dateToIso, decimalToString, type MoneyInput } from './serialize.js'
 
 // Central API mappers: database rows in, JSON-safe DTOs out.
 //
 // Rules for every mapper:
 // - Money goes through decimalToString (scale-exact strings) paired with
 //   the record's currency; dates through dateToIso.
-// - decimalToNumber survives only for legacy insurance mappers and is
-//   migrated to string serialization in its dedicated phase.
 // - Nullable columns stay nullable.
 // - Display-only fields the UI expects (`asset`, `relatedRisk`, `findings`,
 //   `assetIds`, `coveredAssets`) are derived here from included relations or
@@ -235,47 +233,57 @@ export interface InsurancePolicyRecord {
   policyNumber: string
   provider: string
   coverageType: string
+  currency: string
   coverageLimit: MoneyInput
   deductible: MoneyInput
   premium: MoneyInput
   expirationDate: DateInput
   status: string
   notes: string | null
-  // Flattened from InsurancePolicyAsset join rows via include().
-  assetLinks?: Array<{ assetId: string }> | null
+  // Join-table rows with the related Asset resolved via include().
+  assetLinks?: Array<{ assetId: string; asset: { id: string; name: string } }> | null
 }
 
+/**
+ * API DTO. Money fields are scale-exact decimal strings denominated in the
+ * policy's own currency; null notes stay null; covered assets are resolved
+ * through the join table into display entities.
+ */
 export interface MappedInsurancePolicy {
   id: string
   policyNumber: string
   provider: string
   coverageType: string
-  coverageLimit: number
-  deductible: number
-  premium: number
+  currency: string
+  coverageLimit: string
+  deductible: string
+  premium: string
   expirationDate: string
   status: string
   notes: string | null
   assetIds: string[]
   coveredAssets: number
+  assets: Array<{ id: string; name: string }>
 }
 
 export function mapInsurancePolicy(policy: InsurancePolicyRecord): MappedInsurancePolicy {
-  const assetIds = (policy.assetLinks ?? []).map((link) => link.assetId)
+  const links = policy.assetLinks ?? []
 
   return {
     id: policy.id,
     policyNumber: policy.policyNumber,
     provider: policy.provider,
     coverageType: policy.coverageType,
-    coverageLimit: decimalToNumber(policy.coverageLimit),
-    deductible: decimalToNumber(policy.deductible),
-    premium: decimalToNumber(policy.premium),
+    currency: policy.currency,
+    coverageLimit: decimalToString(policy.coverageLimit),
+    deductible: decimalToString(policy.deductible),
+    premium: decimalToString(policy.premium),
     expirationDate: dateToIso(policy.expirationDate),
     status: policy.status,
     notes: policy.notes,
-    assetIds,
-    coveredAssets: assetIds.length,
+    assetIds: links.map((link) => link.assetId),
+    coveredAssets: links.length,
+    assets: links.map((link) => ({ id: link.asset.id, name: link.asset.name })),
   }
 }
 

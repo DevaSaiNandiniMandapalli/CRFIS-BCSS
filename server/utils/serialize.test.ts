@@ -86,24 +86,35 @@ describe('mapAudit', () => {
 })
 
 describe('mapInsurancePolicy', () => {
-  it('flattens join rows into assetIds and coveredAssets', () => {
+  it('flattens join rows into assetIds, coveredAssets and display entities', () => {
     const policy = mapInsurancePolicy({
       id: 'POL-001',
       policyNumber: 'CYB-DEMO-2026-001',
       provider: 'Global Cyber Insurance',
       coverageType: 'Cyber Liability',
-      coverageLimit: { toNumber: () => 5000000 },
-      deductible: { toNumber: () => 250000 },
-      premium: { toNumber: () => 185000 },
+      currency: 'USD',
+      coverageLimit: { toNumber: () => 5000000, toString: () => '5000000.00' },
+      deductible: { toNumber: () => 250000, toString: () => '250000.00' },
+      premium: { toNumber: () => 185000, toString: () => '185000.00' },
       expirationDate: new Date('2027-03-31T00:00:00Z'),
       status: 'Active',
       notes: null,
-      assetLinks: [{ assetId: 'ASSET-001' }, { assetId: 'ASSET-002' }],
+      assetLinks: [
+        { assetId: 'ASSET-001', asset: { id: 'ASSET-001', name: 'Core Infrastructure' } },
+        { assetId: 'ASSET-002', asset: { id: 'ASSET-002', name: 'Identity Platform' } },
+      ],
     })
 
     assert.deepEqual(policy.assetIds, ['ASSET-001', 'ASSET-002'])
     assert.equal(policy.coveredAssets, 2)
-    assert.equal(policy.coverageLimit, 5000000)
+    assert.deepEqual(policy.assets, [
+      { id: 'ASSET-001', name: 'Core Infrastructure' },
+      { id: 'ASSET-002', name: 'Identity Platform' },
+    ])
+    assert.equal(policy.coverageLimit, '5000000.00')
+    assert.equal(policy.deductible, '250000.00')
+    assert.equal(policy.premium, '185000.00')
+    assert.equal(policy.currency, 'USD')
     assert.equal(policy.notes, null)
     assert.equal(policy.expirationDate, '2027-03-31T00:00:00.000Z')
   })
@@ -114,6 +125,7 @@ describe('mapInsurancePolicy', () => {
       policyNumber: 'X',
       provider: 'P',
       coverageType: 'Data Breach',
+      currency: 'EUR',
       coverageLimit: 1,
       deductible: 1,
       premium: 1,
@@ -124,5 +136,7 @@ describe('mapInsurancePolicy', () => {
 
     assert.deepEqual(policy.assetIds, [])
     assert.equal(policy.coveredAssets, 0)
+    assert.deepEqual(policy.assets, [])
+    assert.equal(policy.currency, 'EUR')
   })
 })

@@ -13,6 +13,7 @@
 
 interface DecimalLike {
   toNumber(): number
+  toString?: () => string
 }
 
 export type MoneyInput = DecimalLike | number | string
@@ -74,8 +75,8 @@ export function decimalToString(value: MoneyInput): string {
     return value
   }
 
-  if (isDecimalLike(value) && typeof (value as { toString?: unknown }).toString === 'function') {
-    const serialized = (value as { toString: () => string }).toString()
+  if (isDecimalLike(value) && typeof value.toString === 'function') {
+    const serialized = value.toString()
 
     if (!Number.isFinite(Number.parseFloat(serialized))) {
       throw new TypeError('Invalid decimal representation received from the database.')
