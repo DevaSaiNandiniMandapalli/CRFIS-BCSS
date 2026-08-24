@@ -193,3 +193,18 @@ export type AuditFindingListResponse = {
   data: AuditFindingDto[]
   meta: ListMeta
 }
+
+export interface ReportDto {
+  id: string
+  name: string
+  type: string
+  period: string
+  status: string
+  generatedAt: string
+  owner: string
+}
+
+export type ReportListResponse = {
+  data: ReportDto[]
+  meta: ListMeta
+}
