@@ -1,16 +1,46 @@
 import { useMemo, useState } from 'react'
-import { demoAssets } from '../data/demoAssets'
-import { calculateTotalAssetValue } from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
 import { toMoney } from '../types/money'
-import { EmptyState } from '../components/States'
+import type {
+  AssetListResponse,
+  AssetDto,
+} from '../types/api'
 import type {
   AssetCriticality,
   AssetStatus,
   AssetType,
 } from '../types/asset'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
 
-const highValueThreshold = toMoney(1000000, 'USD')
+const PAGE_SIZE = 20
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) =>
+      formatMoneyOrDash(toMoney(amount, currency as AssetDto['currency'])),
+    )
+    .join('  +  ')
+}
 
 function AssetRegister() {
   const [search, setSearch] = useState('')
@@ -20,58 +50,36 @@ function AssetRegister() {
     useState<AssetStatus | 'All'>('All')
   const [type, setType] =
     useState<AssetType | 'All'>('All')
+  const [page, setPage] = useState(1)
 
-  const filteredAssets = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  const debouncedSearch = useDebouncedValue(search)
 
-    return demoAssets.filter((asset) => {
-      const matchesSearch =
-        !query ||
-        asset.name.toLowerCase().includes(query) ||
-        asset.businessUnit.toLowerCase().includes(query) ||
-        asset.owner.toLowerCase().includes(query)
-
-      const matchesCriticality =
-        criticality === 'All' ||
-        asset.criticality === criticality
-
-      const matchesStatus =
-        status === 'All' ||
-        asset.status === status
-
-      const matchesType =
-        type === 'All' ||
-        asset.type === type
-
-      return (
-        matchesSearch &&
-        matchesCriticality &&
-        matchesStatus &&
-        matchesType
-      )
+  const url = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      criticality: criticality === 'All' ? undefined : criticality,
+      status: status === 'All' ? undefined : status,
+      type: type === 'All' ? undefined : type,
     })
-  }, [search, criticality, status, type])
 
-  const criticalCount = demoAssets.filter(
-    (asset) => asset.criticality === 'Critical',
-  ).length
+    return `/api/assets?${query}`
+  }, [page, debouncedSearch, criticality, status, type])
 
-  const highValueCount = demoAssets.filter(
-    (asset) => asset.annualValue >= 1000000,
-  ).length
+  const { data, loading, error, reload } =
+    useApiResource<AssetListResponse>(url)
 
-  const underReviewCount = demoAssets.filter(
-    (asset) => asset.status === 'Under Review',
-  ).length
-
-  const totalAnnualValue =
-    calculateTotalAssetValue(demoAssets)
+  const assets = data?.data ?? []
+  const meta = data?.meta
+  const stats = meta?.stats
 
   const clearFilters = () => {
     setSearch('')
     setCriticality('All')
     setStatus('All')
     setType('All')
+    setPage(1)
   }
 
   const hasFilters =
@@ -80,13 +88,32 @@ function AssetRegister() {
     status !== 'All' ||
     type !== 'All'
 
+  // Any filter change returns the user to the first page.
+  const updateFilter = <T,>(
+    setter: (value: T) => void,
+  ) =>
+    (value: T) => {
+      setter(value)
+      setPage(1)
+    }
+
+  const setCriticalityAndReset = updateFilter(setCriticality)
+  const setStatusAndReset = updateFilter(setStatus)
+  const setTypeAndReset = updateFilter(setType)
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showTableContent = !loading && !error
+
   return (
     <section className="page">
       <header className="page-intro">
         <div className="page-intro-text">
           <div className="page-title-row">
             <h2>Asset Register</h2>
-            <span className="chip">DEMO DATA</span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -106,37 +133,38 @@ function AssetRegister() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Total Assets</span>
-          <strong className="kpi-value">{demoAssets.length}</strong>
-          <small className="kpi-note">Demo / placeholder</small>
+          <strong className="kpi-value">{meta?.total ?? 0}</strong>
+          <small className="kpi-note">Matching current filters</small>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">Critical Assets</span>
-          <strong className="kpi-value">{criticalCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byCriticality['Critical'] ?? 0}
+          </strong>
           <small className="kpi-note">Highest business priority</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">High Value</span>
-          <strong className="kpi-value">{highValueCount}</strong>
-          <small className="kpi-note">
-            Demo annual value ≥{' '}
-            {formatMoneyOrDash(highValueThreshold, { compact: true })}
-          </small>
+          <strong className="kpi-value">{stats?.highValueCount ?? 0}</strong>
+          <small className="kpi-note">Annual value ≥ 1M units</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Under Review</span>
-          <strong className="kpi-value">{underReviewCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Under Review'] ?? 0}
+          </strong>
           <small className="kpi-note">Requires assessment</small>
         </article>
 
         <article className="kpi-card">
-          <span className="kpi-label">Demo Annual Value</span>
+          <span className="kpi-label">Total Annual Value</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalAnnualValue)}
+            {formatCurrencyBuckets(stats?.annualValueByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
       </div>
 
@@ -144,13 +172,12 @@ function AssetRegister() {
         <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Connected to the CRFIS database</strong>
 
           <p>
-            All assets and financial values on this screen are
-            fictional placeholder data for CRFIS interface
-            development. They are not real company assets or
-            financial valuations.
+            Assets are served live from the CRFIS database through the
+            read-only API. Monetary amounts keep their record currency;
+            no conversion is applied.
           </p>
         </div>
       </div>
@@ -164,7 +191,7 @@ function AssetRegister() {
             placeholder="Search assets, business units, owners..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearchAndReset(event.target.value)
             }
             aria-label="Search assets"
           />
@@ -173,7 +200,7 @@ function AssetRegister() {
         <select
           value={criticality}
           onChange={(event) =>
-            setCriticality(
+            setCriticalityAndReset(
               event.target.value as AssetCriticality | 'All',
             )
           }
@@ -189,7 +216,7 @@ function AssetRegister() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(
+            setStatusAndReset(
               event.target.value as AssetStatus | 'All',
             )
           }
@@ -207,7 +234,7 @@ function AssetRegister() {
         <select
           value={type}
           onChange={(event) =>
-            setType(
+            setTypeAndReset(
               event.target.value as AssetType | 'All',
             )
           }
@@ -245,13 +272,14 @@ function AssetRegister() {
             <strong>Asset Inventory</strong>
 
             <span>
-              Showing {filteredAssets.length} of{' '}
-              {demoAssets.length} demo assets
+              Showing {assets.length} of{' '}
+              {meta?.total ?? 0} assets · page{' '}
+              {meta?.page ?? 1} of {meta?.pageCount ?? 1}
             </span>
           </div>
 
           <span className="chip chip--muted">
-            PLACEHOLDER DATA
+            LIVE DATABASE
           </span>
         </div>
 
@@ -272,67 +300,136 @@ function AssetRegister() {
             </thead>
 
             <tbody>
-              {filteredAssets.map((asset) => (
-                <tr key={asset.id}>
-                  <td>
-                    <div className="cell-stack">
-                      <strong>{asset.name}</strong>
-                      <span>{asset.id}</span>
-                    </div>
-                  </td>
-
-                  <td>{asset.type}</td>
-
-                  <td>{asset.businessUnit}</td>
-
-                  <td>
-                    <span
-                      className={`badge badge--${slugify(asset.criticality)}`}
-                    >
-                      {asset.criticality}
-                    </span>
-                  </td>
-
-                  <td className="money">
-                    {formatMoneyOrDash(
-                      toMoney(asset.annualValue, asset.currency),
-                    )}
-                  </td>
-
-                  <td>
-                    <span
-                      className={`badge badge--${slugify(asset.status)}`}
-                    >
-                      {asset.status}
-                    </span>
-                  </td>
-
-                  <td>{asset.owner}</td>
-                </tr>
-              ))}
-
-              {filteredAssets.length === 0 && (
+              {loading && (
                 <tr>
                   <td colSpan={7}>
-                    <EmptyState
-                      title="No assets match the current filters."
-                      message="Try changing the search or filter selections."
+                    <LoadingState title="Loading assets..." />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && error && (
+                <tr>
+                  <td colSpan={7}>
+                    <ErrorState
+                      title="Assets could not be loaded."
+                      message={error}
                       action={
                         <button
                           className="secondary-button"
                           type="button"
-                          onClick={clearFilters}
+                          onClick={reload}
                         >
-                          Clear filters
+                          Retry
                         </button>
                       }
                     />
                   </td>
                 </tr>
               )}
+
+              {showTableContent && assets.length === 0 && (
+                <tr>
+                  <td colSpan={7}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No assets match the current filters.'
+                          : 'No assets recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any assets yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent &&
+                assets.map((asset) => (
+                  <tr key={asset.id}>
+                    <td>
+                      <div className="cell-stack">
+                        <strong>{asset.name}</strong>
+                        <span>{asset.id}</span>
+                      </div>
+                    </td>
+
+                    <td>{asset.type}</td>
+
+                    <td>{asset.businessUnit}</td>
+
+                    <td>
+                      <span
+                        className={`badge badge--${slugify(asset.criticality)}`}
+                      >
+                        {asset.criticality}
+                      </span>
+                    </td>
+
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(asset.annualValue, asset.currency),
+                      )}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`badge badge--${slugify(asset.status)}`}
+                      >
+                        {asset.status}
+                      </span>
+                    </td>
+
+                    <td>{asset.owner}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showTableContent && (meta?.total ?? 0) > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )

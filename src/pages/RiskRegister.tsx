@@ -1,15 +1,46 @@
 import { useMemo, useState } from 'react'
-import { demoAssets } from '../data/demoAssets'
-import { demoRisks } from '../data/demoRisks'
-import { calculateTotalExposure } from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
 import { toMoney } from '../types/money'
-import { EmptyState } from '../components/States'
+import type {
+  RiskListResponse,
+  RiskDto,
+} from '../types/api'
 import type {
   RiskCategory,
   RiskSeverity,
   RiskStatus,
 } from '../types/risk'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
+
+const PAGE_SIZE = 20
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) =>
+      formatMoneyOrDash(toMoney(amount, currency as RiskDto['currency'])),
+    )
+    .join('  +  ')
+}
 
 function RiskRegister() {
   const [search, setSearch] = useState('')
@@ -19,85 +50,36 @@ function RiskRegister() {
     useState<RiskStatus | 'All'>('All')
   const [category, setCategory] =
     useState<RiskCategory | 'All'>('All')
+  const [page, setPage] = useState(1)
 
-  /*
-   * Connect each Asset ID to the actual Asset record.
-   *
-   * Example:
-   *
-   * ASSET-001 -> Core Infrastructure
-   * ASSET-002 -> Identity Platform
-   */
-  const assetById = useMemo(
-    () =>
-      new Map(
-        demoAssets.map((asset) => [asset.id, asset]),
-      ),
-    [],
-  )
+  const debouncedSearch = useDebouncedValue(search)
 
-  const filteredRisks = useMemo(() => {
-    const query = search.trim().toLowerCase()
-
-    return demoRisks.filter((risk) => {
-      const linkedAsset = assetById.get(risk.assetId)
-
-      const assetName =
-        linkedAsset?.name ?? risk.asset
-
-      const matchesSearch =
-        !query ||
-        risk.risk.toLowerCase().includes(query) ||
-        assetName.toLowerCase().includes(query) ||
-        risk.owner.toLowerCase().includes(query)
-
-      const matchesSeverity =
-        severity === 'All' ||
-        risk.severity === severity
-
-      const matchesStatus =
-        status === 'All' ||
-        risk.status === status
-
-      const matchesCategory =
-        category === 'All' ||
-        risk.category === category
-
-      return (
-        matchesSearch &&
-        matchesSeverity &&
-        matchesStatus &&
-        matchesCategory
-      )
+  const url = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      severity: severity === 'All' ? undefined : severity,
+      status: status === 'All' ? undefined : status,
+      category: category === 'All' ? undefined : category,
     })
-  }, [
-    search,
-    severity,
-    status,
-    category,
-    assetById,
-  ])
 
-  const totalExposure =
-    calculateTotalExposure(demoRisks)
+    return `/api/risks?${query}`
+  }, [page, debouncedSearch, severity, status, category])
 
-  const criticalCount = demoRisks.filter(
-    (risk) => risk.severity === 'Critical',
-  ).length
+  const { data, loading, error, reload } =
+    useApiResource<RiskListResponse>(url)
 
-  const highCount = demoRisks.filter(
-    (risk) => risk.severity === 'High',
-  ).length
-
-  const mediumCount = demoRisks.filter(
-    (risk) => risk.severity === 'Medium',
-  ).length
+  const risks = data?.data ?? []
+  const meta = data?.meta
+  const stats = meta?.stats
 
   const clearFilters = () => {
     setSearch('')
     setSeverity('All')
     setStatus('All')
     setCategory('All')
+    setPage(1)
   }
 
   const hasFilters =
@@ -106,6 +88,25 @@ function RiskRegister() {
     status !== 'All' ||
     category !== 'All'
 
+  // Any filter change returns the user to the first page.
+  const updateFilter = <T,>(
+    setter: (value: T) => void,
+  ) =>
+    (value: T) => {
+      setter(value)
+      setPage(1)
+    }
+
+  const setSeverityAndReset = updateFilter(setSeverity)
+  const setStatusAndReset = updateFilter(setStatus)
+  const setCategoryAndReset = updateFilter(setCategory)
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showTableContent = !loading && !error
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -113,7 +114,7 @@ function RiskRegister() {
           <div className="page-title-row">
             <h2>Risk Register</h2>
 
-            <span className="chip">DEMO DATA</span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -133,34 +134,40 @@ function RiskRegister() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Active Risks</span>
-          <strong className="kpi-value">{demoRisks.length}</strong>
-          <small className="kpi-note">Demo / placeholder</small>
+          <strong className="kpi-value">{meta?.total ?? 0}</strong>
+          <small className="kpi-note">Matching current filters</small>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">Critical</span>
-          <strong className="kpi-value">{criticalCount}</strong>
+          <strong className="kpi-value">
+            {stats?.bySeverity['Critical'] ?? 0}
+          </strong>
           <small className="kpi-note">Requires attention</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">High</span>
-          <strong className="kpi-value">{highCount}</strong>
+          <strong className="kpi-value">
+            {stats?.bySeverity['High'] ?? 0}
+          </strong>
           <small className="kpi-note">Priority risks</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Medium</span>
-          <strong className="kpi-value">{mediumCount}</strong>
+          <strong className="kpi-value">
+            {stats?.bySeverity['Medium'] ?? 0}
+          </strong>
           <small className="kpi-note">Monitor and manage</small>
         </article>
 
         <article className="kpi-card">
-          <span className="kpi-label">Demo Exposure</span>
+          <span className="kpi-label">Total Exposure</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalExposure)}
+            {formatCurrencyBuckets(stats?.exposureByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
       </div>
 
@@ -171,15 +178,13 @@ function RiskRegister() {
 
         <div>
           <strong>
-            Demonstration environment
+            Connected to the CRFIS database
           </strong>
 
           <p>
-            All risks and financial values on this
-            screen are fictional placeholder data
-            for CRFIS interface development. They
-            are not real security findings or
-            calculated financial assessments.
+            Risks are served live from the CRFIS database through the
+            read-only API with their related assets. Monetary amounts keep
+            their record currency; no conversion is applied.
           </p>
         </div>
       </div>
@@ -193,7 +198,7 @@ function RiskRegister() {
             placeholder="Search risks, assets, owners..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearchAndReset(event.target.value)
             }
             aria-label="Search risks"
           />
@@ -202,7 +207,7 @@ function RiskRegister() {
         <select
           value={severity}
           onChange={(event) =>
-            setSeverity(
+            setSeverityAndReset(
               event.target.value as
                 | RiskSeverity
                 | 'All',
@@ -234,7 +239,7 @@ function RiskRegister() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(
+            setStatusAndReset(
               event.target.value as
                 | RiskStatus
                 | 'All',
@@ -266,7 +271,7 @@ function RiskRegister() {
         <select
           value={category}
           onChange={(event) =>
-            setCategory(
+            setCategoryAndReset(
               event.target.value as
                 | RiskCategory
                 | 'All',
@@ -322,13 +327,14 @@ function RiskRegister() {
             </strong>
 
             <span>
-              Showing {filteredRisks.length} of{' '}
-              {demoRisks.length} demo risks
+              Showing {risks.length} of{' '}
+              {meta?.total ?? 0} risks · page{' '}
+              {meta?.page ?? 1} of {meta?.pageCount ?? 1}
             </span>
           </div>
 
           <span className="chip chip--muted">
-            PLACEHOLDER DATA
+            LIVE DATABASE
           </span>
         </div>
 
@@ -350,11 +356,66 @@ function RiskRegister() {
             </thead>
 
             <tbody>
-              {filteredRisks.map((risk) => {
-                const linkedAsset =
-                  assetById.get(risk.assetId)
+              {loading && (
+                <tr>
+                  <td colSpan={8}>
+                    <LoadingState title="Loading risks..." />
+                  </td>
+                </tr>
+              )}
 
-                return (
+              {!loading && error && (
+                <tr>
+                  <td colSpan={8}>
+                    <ErrorState
+                      title="Risks could not be loaded."
+                      message={error}
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={reload}
+                        >
+                          Retry
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent && risks.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No risks match the current filters.'
+                          : 'No risks recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any risks yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent &&
+                risks.map((risk) => (
                   <tr key={risk.id}>
                     <td>
                       <div className="cell-stack">
@@ -371,8 +432,7 @@ function RiskRegister() {
                     <td>
                       <div className="cell-stack">
                         <strong>
-                          {linkedAsset?.name ??
-                            risk.asset}
+                          {risk.asset?.name ?? 'Unknown asset'}
                         </strong>
 
                         <span>
@@ -415,31 +475,40 @@ function RiskRegister() {
                       {risk.owner}
                     </td>
                   </tr>
-                )
-              })}
-
-              {filteredRisks.length === 0 && (
-                <tr>
-                  <td colSpan={8}>
-                    <EmptyState
-                      title="No risks match the current filters."
-                      message="Try changing the search or filter selections."
-                      action={
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={clearFilters}
-                        >
-                          Clear filters
-                        </button>
-                      }
-                    />
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showTableContent && (meta?.total ?? 0) > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
