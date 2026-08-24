@@ -1,4 +1,4 @@
-import { dateToIso, decimalToNumber, type MoneyInput } from './serialize.js'
+import { dateToIso, decimalToNumber, decimalToString, type MoneyInput } from './serialize.js'
 
 // Central API mappers: database rows in, JSON-safe DTOs out.
 //
@@ -19,19 +19,25 @@ export interface AssetRecord {
   type: string
   businessUnit: string
   criticality: string
+  currency: string
   annualValue: MoneyInput
   status: string
   owner: string
   lastUpdated: DateInput
 }
 
+/**
+ * API DTO. Money is a decimal STRING preserving database scale and the
+ * currency always comes from the record - never inferred, never converted.
+ */
 export interface MappedAsset {
   id: string
   name: string
   type: string
   businessUnit: string
   criticality: string
-  annualValue: number
+  currency: string
+  annualValue: string
   status: string
   owner: string
   lastUpdated: string
@@ -44,7 +50,8 @@ export function mapAsset(asset: AssetRecord): MappedAsset {
     type: asset.type,
     businessUnit: asset.businessUnit,
     criticality: asset.criticality,
-    annualValue: decimalToNumber(asset.annualValue),
+    currency: asset.currency,
+    annualValue: decimalToString(asset.annualValue),
     status: asset.status,
     owner: asset.owner,
     lastUpdated: dateToIso(asset.lastUpdated),
@@ -57,38 +64,44 @@ export interface RiskRecord {
   category: string
   severity: string
   likelihood: string
+  currency: string
   exposure: MoneyInput
   status: string
   owner: string
   lastUpdated: DateInput
   // Resolved from the required Asset relation via include({ asset: true }).
-  asset?: { name: string } | null
+  assetId: string
+  asset?: { id: string; name: string } | null
 }
 
 export interface MappedRisk {
   id: string
   risk: string
-  asset: string | null
   assetId: string
+  // Related display entity loaded through Prisma relations, never assembled
+  // from client/demo data.
+  asset: { id: string; name: string } | null
   category: string
   severity: string
   likelihood: string
-  exposure: number
+  currency: string
+  exposure: string
   status: string
   owner: string
   lastUpdated: string
 }
 
-export function mapRisk(risk: RiskRecord & { assetId: string }): MappedRisk {
+export function mapRisk(risk: RiskRecord): MappedRisk {
   return {
     id: risk.id,
     risk: risk.risk,
-    asset: risk.asset?.name ?? null,
     assetId: risk.assetId,
+    asset: risk.asset ? { id: risk.asset.id, name: risk.asset.name } : null,
     category: risk.category,
     severity: risk.severity,
     likelihood: risk.likelihood,
-    exposure: decimalToNumber(risk.exposure),
+    currency: risk.currency,
+    exposure: decimalToString(risk.exposure),
     status: risk.status,
     owner: risk.owner,
     lastUpdated: dateToIso(risk.lastUpdated),

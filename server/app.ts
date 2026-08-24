@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import { healthRoutes } from './routes/health.js'
+import { assetRoutes } from './routes/assets.js'
+import { riskRoutes } from './routes/risks.js'
 import { closePrisma } from './repositories/prisma.js'
 import { errorHandlingPlugin } from './plugins/error-handler.js'
 
@@ -13,6 +15,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(errorHandlingPlugin)
 
   await app.register(healthRoutes)
+  await app.register(assetRoutes)
+  await app.register(riskRoutes)
 
   app.addHook('onClose', async () => {
     await closePrisma()

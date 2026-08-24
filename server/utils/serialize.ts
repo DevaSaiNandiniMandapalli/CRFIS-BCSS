@@ -51,6 +51,50 @@ export function nullableDecimalToNumber(value: MoneyInput | null | undefined): n
   return decimalToNumber(value)
 }
 
+/**
+ * Canonical API money representation: a decimal STRING preserving the
+ * database scale exactly (e.g. "1800000.00"), never a float. JavaScript
+ * numbers lose cents above 2^53 and drop trailing zeros; the API contract
+ * does neither.
+ */
+export function decimalToString(value: MoneyInput): string {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new TypeError('Invalid decimal representation received from the database.')
+    }
+
+    return String(value)
+  }
+
+  if (typeof value === 'string') {
+    if (!Number.isFinite(Number.parseFloat(value))) {
+      throw new TypeError('Invalid decimal representation received from the database.')
+    }
+
+    return value
+  }
+
+  if (isDecimalLike(value) && typeof (value as { toString?: unknown }).toString === 'function') {
+    const serialized = (value as { toString: () => string }).toString()
+
+    if (!Number.isFinite(Number.parseFloat(serialized))) {
+      throw new TypeError('Invalid decimal representation received from the database.')
+    }
+
+    return serialized
+  }
+
+  throw new TypeError('Invalid decimal representation received from the database.')
+}
+
+/** Builds the flat wire-format money pair used by every monetary DTO field. */
+export function moneyDto(
+  amount: MoneyInput,
+  currency: string,
+): { amount: string; currency: string } {
+  return { amount: decimalToString(amount), currency }
+}
+
 export function dateToIso(value: Date | string): string {
   if (value instanceof Date) {
     return value.toISOString()
