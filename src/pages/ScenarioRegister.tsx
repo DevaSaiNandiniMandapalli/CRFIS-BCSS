@@ -1,16 +1,46 @@
 import { useMemo, useState } from 'react'
-import { demoScenarios } from '../data/demoScenarios'
-import { demoRisks } from '../data/demoRisks'
-import { demoAssets } from '../data/demoAssets'
-import { calculateTotalScenarioImpact } from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
 import { toMoney } from '../types/money'
-import { EmptyState } from '../components/States'
+import type {
+  ScenarioDto,
+  ScenarioListResponse,
+} from '../types/api'
 import type {
   ScenarioCategory,
   ScenarioSeverity,
   ScenarioStatus,
 } from '../types/scenario'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
+
+const PAGE_SIZE = 20
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) =>
+      formatMoneyOrDash(toMoney(amount, currency as ScenarioDto['currency'])),
+    )
+    .join('  +  ')
+}
 
 function ScenarioRegister() {
   const [search, setSearch] = useState('')
@@ -20,76 +50,36 @@ function ScenarioRegister() {
     useState<ScenarioStatus | 'All'>('All')
   const [category, setCategory] =
     useState<ScenarioCategory | 'All'>('All')
+  const [page, setPage] = useState(1)
 
-  const riskById = useMemo(
-    () => new Map(demoRisks.map((risk) => [risk.id, risk])),
-    [],
-  )
+  const debouncedSearch = useDebouncedValue(search)
 
-  const assetById = useMemo(
-    () => new Map(demoAssets.map((asset) => [asset.id, asset])),
-    [],
-  )
-
-  const filteredScenarios = useMemo(() => {
-    const query = search.trim().toLowerCase()
-
-    return demoScenarios.filter((scenario) => {
-      const relatedRisk = riskById.get(scenario.riskId)
-      const relatedAsset = assetById.get(scenario.assetId)
-
-      const matchesSearch =
-        !query ||
-        scenario.name.toLowerCase().includes(query) ||
-        scenario.description.toLowerCase().includes(query) ||
-        scenario.owner.toLowerCase().includes(query) ||
-        relatedRisk?.risk.toLowerCase().includes(query) ||
-        relatedAsset?.name.toLowerCase().includes(query)
-
-      const matchesSeverity =
-        severity === 'All' || scenario.severity === severity
-
-      const matchesStatus =
-        status === 'All' || scenario.status === status
-
-      const matchesCategory =
-        category === 'All' || scenario.category === category
-
-      return (
-        matchesSearch &&
-        matchesSeverity &&
-        matchesStatus &&
-        matchesCategory
-      )
+  const url = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      severity: severity === 'All' ? undefined : severity,
+      status: status === 'All' ? undefined : status,
+      category: category === 'All' ? undefined : category,
     })
-  }, [
-    search,
-    severity,
-    status,
-    category,
-    riskById,
-    assetById,
-  ])
 
-  const criticalCount = demoScenarios.filter(
-    (scenario) => scenario.severity === 'Critical',
-  ).length
+    return `/api/scenarios?${query}`
+  }, [page, debouncedSearch, severity, status, category])
 
-  const highCount = demoScenarios.filter(
-    (scenario) => scenario.severity === 'High',
-  ).length
+  const { data, loading, error, reload } =
+    useApiResource<ScenarioListResponse>(url)
 
-  const underReviewCount = demoScenarios.filter(
-    (scenario) => scenario.status === 'Under Review',
-  ).length
-
-  const totalImpact = calculateTotalScenarioImpact(demoScenarios)
+  const scenarios = data?.data ?? []
+  const meta = data?.meta
+  const stats = meta?.stats
 
   const clearFilters = () => {
     setSearch('')
     setSeverity('All')
     setStatus('All')
     setCategory('All')
+    setPage(1)
   }
 
   const hasFilters =
@@ -98,13 +88,32 @@ function ScenarioRegister() {
     status !== 'All' ||
     category !== 'All'
 
+  // Any filter change returns the user to the first page.
+  const updateFilter = <T,>(
+    setter: (value: T) => void,
+  ) =>
+    (value: T) => {
+      setter(value)
+      setPage(1)
+    }
+
+  const setSeverityAndReset = updateFilter(setSeverity)
+  const setStatusAndReset = updateFilter(setStatus)
+  const setCategoryAndReset = updateFilter(setCategory)
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showTableContent = !loading && !error
+
   return (
     <section className="page">
       <header className="page-intro">
         <div className="page-intro-text">
           <div className="page-title-row">
             <h2>Scenario Analysis</h2>
-            <span className="chip">DEMO DATA</span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -121,34 +130,40 @@ function ScenarioRegister() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Active Scenarios</span>
-          <strong className="kpi-value">{demoScenarios.length}</strong>
-          <small className="kpi-note">Demo / placeholder</small>
+          <strong className="kpi-value">{meta?.total ?? 0}</strong>
+          <small className="kpi-note">Matching current filters</small>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">Critical</span>
-          <strong className="kpi-value">{criticalCount}</strong>
+          <strong className="kpi-value">
+            {stats?.bySeverity['Critical'] ?? 0}
+          </strong>
           <small className="kpi-note">Highest impact scenarios</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">High</span>
-          <strong className="kpi-value">{highCount}</strong>
+          <strong className="kpi-value">
+            {stats?.bySeverity['High'] ?? 0}
+          </strong>
           <small className="kpi-note">Priority scenarios</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Under Review</span>
-          <strong className="kpi-value">{underReviewCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Under Review'] ?? 0}
+          </strong>
           <small className="kpi-note">Awaiting assessment</small>
         </article>
 
         <article className="kpi-card">
-          <span className="kpi-label">Demo Estimated Impact</span>
+          <span className="kpi-label">Estimated Impact</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalImpact)}
+            {formatCurrencyBuckets(stats?.estimatedImpactByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
       </div>
 
@@ -156,13 +171,12 @@ function ScenarioRegister() {
         <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Connected to the CRFIS database</strong>
 
           <p>
-            All scenarios, probabilities, and financial impact values
-            on this screen are fictional placeholder data for CRFIS
-            interface development. They are not real forecasts or
-            financial assessments.
+            Scenarios are served live from the CRFIS database through the
+            read-only API with their related risks and assets. Monetary
+            amounts keep their record currency; no conversion is applied.
           </p>
         </div>
       </div>
@@ -175,7 +189,7 @@ function ScenarioRegister() {
             type="search"
             placeholder="Search scenarios, risks, assets, owners..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setSearchAndReset(event.target.value)}
             aria-label="Search scenarios"
           />
         </label>
@@ -183,7 +197,7 @@ function ScenarioRegister() {
         <select
           value={severity}
           onChange={(event) =>
-            setSeverity(
+            setSeverityAndReset(
               event.target.value as ScenarioSeverity | 'All',
             )
           }
@@ -199,7 +213,7 @@ function ScenarioRegister() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(
+            setStatusAndReset(
               event.target.value as ScenarioStatus | 'All',
             )
           }
@@ -215,7 +229,7 @@ function ScenarioRegister() {
         <select
           value={category}
           onChange={(event) =>
-            setCategory(
+            setCategoryAndReset(
               event.target.value as ScenarioCategory | 'All',
             )
           }
@@ -249,13 +263,14 @@ function ScenarioRegister() {
             <strong>Scenario Inventory</strong>
 
             <span>
-              Showing {filteredScenarios.length} of{' '}
-              {demoScenarios.length} demo scenarios
+              Showing {scenarios.length} of{' '}
+              {meta?.total ?? 0} scenarios · page{' '}
+              {meta?.page ?? 1} of {meta?.pageCount ?? 1}
             </span>
           </div>
 
           <span className="chip chip--muted">
-            PLACEHOLDER DATA
+            LIVE DATABASE
           </span>
         </div>
 
@@ -279,11 +294,66 @@ function ScenarioRegister() {
             </thead>
 
             <tbody>
-              {filteredScenarios.map((scenario) => {
-                const relatedRisk = riskById.get(scenario.riskId)
-                const relatedAsset = assetById.get(scenario.assetId)
+              {loading && (
+                <tr>
+                  <td colSpan={10}>
+                    <LoadingState title="Loading scenarios..." />
+                  </td>
+                </tr>
+              )}
 
-                return (
+              {!loading && error && (
+                <tr>
+                  <td colSpan={10}>
+                    <ErrorState
+                      title="Scenarios could not be loaded."
+                      message={error}
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={reload}
+                        >
+                          Retry
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent && scenarios.length === 0 && (
+                <tr>
+                  <td colSpan={10}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No scenarios match the current filters.'
+                          : 'No scenarios recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any scenarios yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent &&
+                scenarios.map((scenario) => (
                   <tr key={scenario.id}>
                     <td>
                       <div className="cell-stack">
@@ -295,7 +365,7 @@ function ScenarioRegister() {
                     <td>
                       <div className="cell-stack">
                         <strong>
-                          {relatedRisk?.risk ?? 'Unknown Risk'}
+                          {scenario.risk?.risk ?? 'Unknown risk'}
                         </strong>
                         <span>{scenario.riskId}</span>
                       </div>
@@ -304,7 +374,7 @@ function ScenarioRegister() {
                     <td>
                       <div className="cell-stack">
                         <strong>
-                          {relatedAsset?.name ?? 'Unknown Asset'}
+                          {scenario.asset?.name ?? 'Unknown asset'}
                         </strong>
                         <span>{scenario.assetId}</span>
                       </div>
@@ -324,10 +394,7 @@ function ScenarioRegister() {
 
                     <td className="money">
                       {formatMoneyOrDash(
-                        toMoney(
-                          scenario.estimatedImpact,
-                          scenario.currency,
-                        ),
+                        toMoney(scenario.estimatedImpact, scenario.currency),
                       )}
                     </td>
 
@@ -343,31 +410,40 @@ function ScenarioRegister() {
 
                     <td>{scenario.owner}</td>
                   </tr>
-                )
-              })}
-
-              {filteredScenarios.length === 0 && (
-                <tr>
-                  <td colSpan={10}>
-                    <EmptyState
-                      title="No scenarios match the current filters."
-                      message="Try changing the search or filter selections."
-                      action={
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={clearFilters}
-                        >
-                          Clear filters
-                        </button>
-                      }
-                    />
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showTableContent && (meta?.total ?? 0) > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="intelligence-panel">
@@ -391,9 +467,9 @@ function ScenarioRegister() {
         </div>
 
         <div className="intelligence-metric">
-          <span>DEMO TOTAL IMPACT</span>
+          <span>TOTAL ESTIMATED IMPACT</span>
           <strong>
-            {formatMoneyOrDash(totalImpact)}
+            {formatCurrencyBuckets(stats?.estimatedImpactByCurrency)}
           </strong>
         </div>
       </div>

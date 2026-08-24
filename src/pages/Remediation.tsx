@@ -1,19 +1,46 @@
 import { useMemo, useState } from 'react'
-import { demoAssets } from '../data/demoAssets'
-import { demoRemediations } from '../data/demoRemediations'
-import { demoRisks } from '../data/demoRisks'
-import {
-  calculateRemediationCost,
-  calculateRemediationOpportunity,
-} from '../utils/financialMetrics'
+import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
 import { toMoney } from '../types/money'
-import { EmptyState } from '../components/States'
+import type {
+  RemediationDto,
+  RemediationListResponse,
+} from '../types/api'
 import type {
   RemediationCategory,
   RemediationPriority,
   RemediationStatus,
 } from '../types/remediation'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
+
+const PAGE_SIZE = 20
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value))
+    }
+  }
+
+  return search.toString()
+}
+
+/** Renders per-currency totals without ever mixing currencies. */
+function formatCurrencyBuckets(buckets: Record<string, string> | undefined): string {
+  const entries = Object.entries(buckets ?? {})
+
+  if (entries.length === 0) {
+    return '—'
+  }
+
+  return entries
+    .map(([currency, amount]) =>
+      formatMoneyOrDash(toMoney(amount, currency as RemediationDto['currency'])),
+    )
+    .join('  +  ')
+}
 
 function Remediation() {
   const [search, setSearch] = useState('')
@@ -23,95 +50,36 @@ function Remediation() {
     useState<RemediationStatus | 'All'>('All')
   const [category, setCategory] =
     useState<RemediationCategory | 'All'>('All')
+  const [page, setPage] = useState(1)
 
-  const riskById = useMemo(
-    () =>
-      new Map(
-        demoRisks.map((risk) => [risk.id, risk]),
-      ),
-    [],
-  )
+  const debouncedSearch = useDebouncedValue(search)
 
-  const assetById = useMemo(
-    () =>
-      new Map(
-        demoAssets.map((asset) => [asset.id, asset]),
-      ),
-    [],
-  )
-
-  const filteredRemediations = useMemo(() => {
-    const query = search.trim().toLowerCase()
-
-    return demoRemediations.filter((item) => {
-      const linkedRisk = riskById.get(item.riskId)
-      const linkedAsset = assetById.get(item.assetId)
-
-      const riskName =
-        linkedRisk?.risk ?? item.relatedRisk
-
-      const assetName =
-        linkedAsset?.name ?? item.asset
-
-      const matchesSearch =
-        !query ||
-        item.action.toLowerCase().includes(query) ||
-        riskName.toLowerCase().includes(query) ||
-        assetName.toLowerCase().includes(query) ||
-        item.owner.toLowerCase().includes(query)
-
-      const matchesPriority =
-        priority === 'All' ||
-        item.priority === priority
-
-      const matchesStatus =
-        status === 'All' ||
-        item.status === status
-
-      const matchesCategory =
-        category === 'All' ||
-        item.category === category
-
-      return (
-        matchesSearch &&
-        matchesPriority &&
-        matchesStatus &&
-        matchesCategory
-      )
+  const url = useMemo(() => {
+    const query = buildQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      priority: priority === 'All' ? undefined : priority,
+      status: status === 'All' ? undefined : status,
+      category: category === 'All' ? undefined : category,
     })
-  }, [
-    search,
-    priority,
-    status,
-    category,
-    riskById,
-    assetById,
-  ])
 
-  const openCount = demoRemediations.filter(
-    (item) => item.status === 'Open',
-  ).length
+    return `/api/remediations?${query}`
+  }, [page, debouncedSearch, priority, status, category])
 
-  const inProgressCount = demoRemediations.filter(
-    (item) => item.status === 'In Progress',
-  ).length
+  const { data, loading, error, reload } =
+    useApiResource<RemediationListResponse>(url)
 
-  const completedCount = demoRemediations.filter(
-    (item) => item.status === 'Completed',
-  ).length
-
-  const overdueCount = 1
-
-  const totalCost = calculateRemediationCost(demoRemediations)
-
-  const totalReduction =
-    calculateRemediationOpportunity(demoRemediations)
+  const remediations = data?.data ?? []
+  const meta = data?.meta
+  const stats = meta?.stats
 
   const clearFilters = () => {
     setSearch('')
     setPriority('All')
     setStatus('All')
     setCategory('All')
+    setPage(1)
   }
 
   const hasFilters =
@@ -120,6 +88,25 @@ function Remediation() {
     status !== 'All' ||
     category !== 'All'
 
+  // Any filter change returns the user to the first page.
+  const updateFilter = <T,>(
+    setter: (value: T) => void,
+  ) =>
+    (value: T) => {
+      setter(value)
+      setPage(1)
+    }
+
+  const setPriorityAndReset = updateFilter(setPriority)
+  const setStatusAndReset = updateFilter(setStatus)
+  const setCategoryAndReset = updateFilter(setCategory)
+  const setSearchAndReset = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const showTableContent = !loading && !error
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -127,9 +114,7 @@ function Remediation() {
           <div className="page-title-row">
             <h2>Remediation</h2>
 
-            <span className="chip">
-              DEMO DATA
-            </span>
+            <span className="chip">LIVE DATA</span>
           </div>
 
           <p>
@@ -150,34 +135,40 @@ function Remediation() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <span className="kpi-label">Open Actions</span>
-          <strong className="kpi-value">{openCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Open'] ?? 0}
+          </strong>
           <small className="kpi-note">Requires action</small>
         </article>
 
         <article className="kpi-card accent">
           <span className="kpi-label">Overdue</span>
-          <strong className="kpi-value">{overdueCount}</strong>
-          <small className="kpi-note">Demo placeholder</small>
+          <strong className="kpi-value">{stats?.overdueCount ?? 0}</strong>
+          <small className="kpi-note">Past due date, not completed</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">In Progress</span>
-          <strong className="kpi-value">{inProgressCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['In Progress'] ?? 0}
+          </strong>
           <small className="kpi-note">Currently being addressed</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Completed</span>
-          <strong className="kpi-value">{completedCount}</strong>
+          <strong className="kpi-value">
+            {stats?.byStatus['Completed'] ?? 0}
+          </strong>
           <small className="kpi-note">Completed actions</small>
         </article>
 
         <article className="kpi-card">
           <span className="kpi-label">Expected Reduction</span>
           <strong className="kpi-value">
-            {formatMoneyOrDash(totalReduction)}
+            {formatCurrencyBuckets(stats?.expectedReductionByCurrency)}
           </strong>
-          <small className="kpi-note">Fictional placeholder value</small>
+          <small className="kpi-note">Per currency, never mixed</small>
         </article>
       </div>
 
@@ -188,14 +179,14 @@ function Remediation() {
 
         <div>
           <strong>
-            Demonstration environment
+            Connected to the CRFIS database
           </strong>
 
           <p>
-            All remediation actions, costs, dates,
-            and financial reduction estimates on this
-            screen are fictional placeholder data for
-            CRFIS interface development.
+            Remediation actions are served live from the CRFIS database
+            through the read-only API with their related risks and assets.
+            Monetary amounts keep their record currency; no conversion is
+            applied.
           </p>
         </div>
       </div>
@@ -209,7 +200,7 @@ function Remediation() {
             placeholder="Search actions, risks, assets, owners..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearchAndReset(event.target.value)
             }
             aria-label="Search remediation actions"
           />
@@ -218,7 +209,7 @@ function Remediation() {
         <select
           value={priority}
           onChange={(event) =>
-            setPriority(
+            setPriorityAndReset(
               event.target.value as
                 | RemediationPriority
                 | 'All',
@@ -250,7 +241,7 @@ function Remediation() {
         <select
           value={status}
           onChange={(event) =>
-            setStatus(
+            setStatusAndReset(
               event.target.value as
                 | RemediationStatus
                 | 'All',
@@ -282,7 +273,7 @@ function Remediation() {
         <select
           value={category}
           onChange={(event) =>
-            setCategory(
+            setCategoryAndReset(
               event.target.value as
                 | RemediationCategory
                 | 'All',
@@ -338,13 +329,14 @@ function Remediation() {
             </strong>
 
             <span>
-              Showing {filteredRemediations.length} of{' '}
-              {demoRemediations.length} demo actions
+              Showing {remediations.length} of{' '}
+              {meta?.total ?? 0} actions · page{' '}
+              {meta?.page ?? 1} of {meta?.pageCount ?? 1}
             </span>
           </div>
 
           <span className="chip chip--muted">
-            PLACEHOLDER DATA
+            LIVE DATABASE
           </span>
         </div>
 
@@ -366,14 +358,66 @@ function Remediation() {
             </thead>
 
             <tbody>
-              {filteredRemediations.map((item) => {
-                const linkedRisk =
-                  riskById.get(item.riskId)
+              {loading && (
+                <tr>
+                  <td colSpan={8}>
+                    <LoadingState title="Loading remediation actions..." />
+                  </td>
+                </tr>
+              )}
 
-                const linkedAsset =
-                  assetById.get(item.assetId)
+              {!loading && error && (
+                <tr>
+                  <td colSpan={8}>
+                    <ErrorState
+                      title="Remediation actions could not be loaded."
+                      message={error}
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={reload}
+                        >
+                          Retry
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
 
-                return (
+              {showTableContent && remediations.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <EmptyState
+                      title={
+                        hasFilters
+                          ? 'No remediation actions match the current filters.'
+                          : 'No remediation actions recorded yet.'
+                      }
+                      message={
+                        hasFilters
+                          ? 'Try changing the search or filter selections.'
+                          : 'The CRFIS database does not contain any remediation actions yet.'
+                      }
+                      action={
+                        hasFilters ? (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={clearFilters}
+                          >
+                            Clear filters
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {showTableContent &&
+                remediations.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <div className="cell-stack">
@@ -390,8 +434,7 @@ function Remediation() {
                     <td>
                       <div className="cell-stack">
                         <strong>
-                          {linkedRisk?.risk ??
-                            item.relatedRisk}
+                          {item.risk?.risk ?? 'Unknown risk'}
                         </strong>
 
                         <span>
@@ -403,8 +446,7 @@ function Remediation() {
                     <td>
                       <div className="cell-stack">
                         <strong>
-                          {linkedAsset?.name ??
-                            item.asset}
+                          {item.asset?.name ?? 'Unknown asset'}
                         </strong>
 
                         <span>
@@ -439,38 +481,44 @@ function Remediation() {
 
                     <td className="money">
                       {formatMoneyOrDash(
-                        toMoney(
-                          item.expectedReduction,
-                          item.currency,
-                        ),
+                        toMoney(item.expectedReduction, item.currency),
                       )}
                     </td>
                   </tr>
-                )
-              })}
-
-              {filteredRemediations.length === 0 && (
-                <tr>
-                  <td colSpan={8}>
-                    <EmptyState
-                      title="No remediation actions match the current filters."
-                      message="Try changing the search or filter selections."
-                      action={
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={clearFilters}
-                        >
-                          Clear filters
-                        </button>
-                      }
-                    />
-                  </td>
-                </tr>
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+
+        {showTableContent && (meta?.total ?? 0) > 0 && (
+          <div className="table-footer">
+            <span>
+              Page {meta?.page ?? 1} of {meta?.pageCount ?? 1}
+            </span>
+
+            <div className="pager-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                ← Prev
+              </button>
+
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={(meta?.page ?? 1) >= (meta?.pageCount ?? 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="intelligence-panel">
@@ -502,7 +550,7 @@ function Remediation() {
           </span>
 
           <strong>
-            {formatMoneyOrDash(totalCost)}
+            {formatCurrencyBuckets(stats?.estimatedCostByCurrency)}
           </strong>
         </div>
       </div>

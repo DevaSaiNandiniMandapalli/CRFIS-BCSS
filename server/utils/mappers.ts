@@ -3,7 +3,10 @@ import { dateToIso, decimalToNumber, decimalToString, type MoneyInput } from './
 // Central API mappers: database rows in, JSON-safe DTOs out.
 //
 // Rules for every mapper:
-// - Money goes through decimalToNumber, dates through dateToIso.
+// - Money goes through decimalToString (scale-exact strings) paired with
+//   the record's currency; dates through dateToIso.
+// - decimalToNumber survives only for legacy insurance mappers and is
+//   migrated to string serialization in its dedicated phase.
 // - Nullable columns stay nullable.
 // - Display-only fields the UI expects (`asset`, `relatedRisk`, `findings`,
 //   `assetIds`, `coveredAssets`) are derived here from included relations or
@@ -116,46 +119,56 @@ export interface RemediationRecord {
   owner: string
   dueDate: DateInput
   status: string
+  currency: string
   estimatedCost: MoneyInput
   expectedReduction: MoneyInput
-  // Resolved from relations via include({ risk: true, asset: true }).
+  // Resolved from relations via include({ risk, asset }) - never assembled
+  // from client or demo data.
+  riskId: string
   risk?: { id: string; risk: string } | null
-  asset?: { name: string } | null
+  assetId: string
+  asset?: { id: string; name: string } | null
 }
 
+/**
+ * API DTO. Money fields are decimal STRINGS with the record's own currency;
+ * dates are ISO strings; relations are the display entities the UI expects.
+ */
 export interface MappedRemediation {
   id: string
   action: string
-  relatedRisk: string | null
-  riskId: string
-  asset: string | null
-  assetId: string
   category: string
   priority: string
   owner: string
   dueDate: string
   status: string
-  estimatedCost: number
-  expectedReduction: number
+  currency: string
+  estimatedCost: string
+  expectedReduction: string
+  riskId: string
+  risk: { id: string; risk: string } | null
+  assetId: string
+  asset: { id: string; name: string } | null
 }
 
-export function mapRemediation(
-  remediation: RemediationRecord & { riskId: string; assetId: string },
-): MappedRemediation {
+export function mapRemediation(remediation: RemediationRecord): MappedRemediation {
   return {
     id: remediation.id,
     action: remediation.action,
-    relatedRisk: remediation.risk?.risk ?? null,
-    riskId: remediation.riskId,
-    asset: remediation.asset?.name ?? null,
-    assetId: remediation.assetId,
     category: remediation.category,
     priority: remediation.priority,
     owner: remediation.owner,
     dueDate: dateToIso(remediation.dueDate),
     status: remediation.status,
-    estimatedCost: decimalToNumber(remediation.estimatedCost),
-    expectedReduction: decimalToNumber(remediation.expectedReduction),
+    currency: remediation.currency,
+    estimatedCost: decimalToString(remediation.estimatedCost),
+    expectedReduction: decimalToString(remediation.expectedReduction),
+    riskId: remediation.riskId,
+    risk: remediation.risk ? { id: remediation.risk.id, risk: remediation.risk.risk } : null,
+    assetId: remediation.assetId,
+    asset: remediation.asset
+      ? { id: remediation.asset.id, name: remediation.asset.name }
+      : null,
   }
 }
 
@@ -166,25 +179,36 @@ export interface ScenarioRecord {
   description: string
   severity: string
   probability: string
+  currency: string
   estimatedImpact: MoneyInput
   businessImpact: string
   status: string
   owner: string
+  riskId: string
+  assetId: string
+  risk?: { id: string; risk: string } | null
+  asset?: { id: string; name: string } | null
 }
 
-export interface MappedScenario extends Omit<ScenarioRecord, 'estimatedImpact'> {
-  estimatedImpact: number
+export interface MappedScenario {
+  id: string
+  name: string
+  category: string
+  description: string
+  severity: string
+  probability: string
+  currency: string
+  estimatedImpact: string
+  businessImpact: string
+  status: string
+  owner: string
+  riskId: string
+  risk: { id: string; risk: string } | null
+  assetId: string
+  asset: { id: string; name: string } | null
 }
 
-export function mapScenario(scenario: ScenarioRecord & { riskId: string; assetId: string }) {
-  return {
-    ...mapScenarioFields(scenario),
-    riskId: scenario.riskId,
-    assetId: scenario.assetId,
-  }
-}
-
-function mapScenarioFields(scenario: ScenarioRecord): MappedScenario {
+export function mapScenario(scenario: ScenarioRecord): MappedScenario {
   return {
     id: scenario.id,
     name: scenario.name,
@@ -192,10 +216,17 @@ function mapScenarioFields(scenario: ScenarioRecord): MappedScenario {
     description: scenario.description,
     severity: scenario.severity,
     probability: scenario.probability,
-    estimatedImpact: decimalToNumber(scenario.estimatedImpact),
+    currency: scenario.currency,
+    estimatedImpact: decimalToString(scenario.estimatedImpact),
     businessImpact: scenario.businessImpact,
     status: scenario.status,
     owner: scenario.owner,
+    riskId: scenario.riskId,
+    risk: scenario.risk ? { id: scenario.risk.id, risk: scenario.risk.risk } : null,
+    assetId: scenario.assetId,
+    asset: scenario.asset
+      ? { id: scenario.asset.id, name: scenario.asset.name }
+      : null,
   }
 }
 

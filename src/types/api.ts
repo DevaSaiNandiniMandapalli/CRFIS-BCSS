@@ -64,3 +64,62 @@ export interface RiskListResponse {
   data: RiskDto[]
   meta: ListMeta & { stats: RiskListStats }
 }
+
+export interface RemediationDto {
+  id: string
+  action: string
+  category: string
+  priority: string
+  owner: string
+  dueDate: string
+  status: string
+  currency: CurrencyCode
+  estimatedCost: string
+  expectedReduction: string
+  riskId: string
+  risk: { id: string; risk: string } | null
+  assetId: string
+  asset: { id: string; name: string } | null
+}
+
+export interface RemediationListStats {
+  byPriority: Record<string, number>
+  byStatus: Record<string, number>
+  expectedReductionByCurrency: Record<string, string>
+  estimatedCostByCurrency: Record<string, string>
+  overdueCount: number
+}
+
+export interface RemediationListResponse {
+  data: RemediationDto[]
+  meta: ListMeta & { stats: RemediationListStats }
+}
+
+export interface ScenarioDto {
+  id: string
+  name: string
+  category: string
+  description: string
+  severity: string
+  probability: string
+  currency: CurrencyCode
+  estimatedImpact: string
+  businessImpact: string
+  status: string
+  owner: string
+  riskId: string
+  risk: { id: string; risk: string } | null
+  assetId: string
+  asset: { id: string; name: string } | null
+}
+
+export interface ScenarioListStats {
+  bySeverity: Record<string, number>
+  byStatus: Record<string, number>
+  estimatedImpactByCurrency: Record<string, string>
+}
+
+export interface ScenarioListResponse {
+  data: ScenarioDto[]
+  meta: ListMeta & { stats: ScenarioListStats }
+}
