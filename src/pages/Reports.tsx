@@ -9,14 +9,9 @@ import {
   calculateRemediationOpportunity,
   calculateTotalInsuranceCoverage,
 } from '../utils/financialMetrics'
+import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
+import { EmptyState } from '../components/States'
 import type { ReportStatus, ReportType } from '../types/report'
-
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function Reports() {
   const [search, setSearch] = useState('')
@@ -24,37 +19,36 @@ function Reports() {
   const [type, setType] = useState<ReportType | 'All'>('All')
 
   /*
-   * These values now come from the CRFIS demo datasets
-   * instead of being hard-coded.
+   * These values come from the CRFIS demo datasets
+   * through the shared currency-aware metrics module.
    */
-
   const totalExposure = calculateTotalExposure(demoRisks)
 
-const criticalRiskCount = calculateCriticalRiskCount(demoRisks)
+  const criticalRiskCount = calculateCriticalRiskCount(demoRisks)
 
-const remediationOpportunity =
-  calculateRemediationOpportunity(demoRemediations)
+  const remediationOpportunity =
+    calculateRemediationOpportunity(demoRemediations)
 
-const totalInsuranceCoverage =
-  calculateTotalInsuranceCoverage(demoInsurance)
+  const totalInsuranceCoverage =
+    calculateTotalInsuranceCoverage(demoInsurance)
 
-const query = search.trim().toLowerCase()
+  const query = search.trim().toLowerCase()
 
-const filteredReports = demoReports.filter((report) => {
-  const matchesSearch =
-    !query ||
-    report.name.toLowerCase().includes(query) ||
-    report.type.toLowerCase().includes(query) ||
-    report.owner.toLowerCase().includes(query)
+  const filteredReports = demoReports.filter((report) => {
+    const matchesSearch =
+      !query ||
+      report.name.toLowerCase().includes(query) ||
+      report.type.toLowerCase().includes(query) ||
+      report.owner.toLowerCase().includes(query)
 
-  const matchesStatus =
-    status === 'All' || report.status === status
+    const matchesStatus =
+      status === 'All' || report.status === status
 
-  const matchesType =
-    type === 'All' || report.type === type
+    const matchesType =
+      type === 'All' || report.type === type
 
-  return matchesSearch && matchesStatus && matchesType
-})
+    return matchesSearch && matchesStatus && matchesType
+  })
 
   const readyCount = demoReports.filter(
     (report) => report.status === 'Ready',
@@ -80,12 +74,12 @@ const filteredReports = demoReports.filter((report) => {
     type !== 'All'
 
   return (
-    <section className="reports-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
-            <h2>Reports & Analytics</h2>
-            <span className="demo-badge">DEMO DATA</span>
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
+            <h2>Reports &amp; Analytics</h2>
+            <span className="chip">DEMO DATA</span>
           </div>
 
           <p>
@@ -97,36 +91,36 @@ const filteredReports = demoReports.filter((report) => {
         <button className="primary-button" type="button">
           + Create Report
         </button>
+      </header>
+
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Total Reports</span>
+          <strong className="kpi-value">{demoReports.length}</strong>
+          <small className="kpi-note">Demo / placeholder</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Ready</span>
+          <strong className="kpi-value">{readyCount}</strong>
+          <small className="kpi-note">Available for review</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Under Review</span>
+          <strong className="kpi-value">{reviewCount}</strong>
+          <small className="kpi-note">Awaiting approval</small>
+        </article>
+
+        <article className="kpi-card accent">
+          <span className="kpi-label">Drafts</span>
+          <strong className="kpi-value">{draftCount}</strong>
+          <small className="kpi-note">Work in progress</small>
+        </article>
       </div>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>TOTAL REPORTS</span>
-          <strong>{demoReports.length}</strong>
-          <small>DEMO / PLACEHOLDER</small>
-        </article>
-
-        <article className="risk-kpi">
-          <span>READY</span>
-          <strong>{readyCount}</strong>
-          <small>Available for review</small>
-        </article>
-
-        <article className="risk-kpi high-kpi">
-          <span>UNDER REVIEW</span>
-          <strong>{reviewCount}</strong>
-          <small>Awaiting approval</small>
-        </article>
-
-        <article className="risk-kpi critical-kpi">
-          <span>DRAFTS</span>
-          <strong>{draftCount}</strong>
-          <small>Work in progress</small>
-        </article>
-      </div>
-
-      <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -147,61 +141,57 @@ const filteredReports = demoReports.filter((report) => {
             <h2>Decision Intelligence</h2>
           </div>
 
-          <span className="report-period">
+          <span className="chip chip--muted">
             Q3 2026 • DEMO
           </span>
         </div>
 
         <div className="report-summary-grid">
-          <article>
-            <span>Financial Exposure</span>
+          <article className="kpi-card">
+            <span className="kpi-label">Financial Exposure</span>
 
-            <strong>
-              {currencyFormatter.format(totalExposure)}
+            <strong className="kpi-value">
+              {formatMoneyOrDash(totalExposure)}
             </strong>
 
-            <small>DEMO / PLACEHOLDER</small>
+            <small className="kpi-note">Demo / placeholder</small>
           </article>
 
-          <article>
-            <span>Critical Risks</span>
+          <article className="kpi-card accent">
+            <span className="kpi-label">Critical Risks</span>
 
-            <strong>
-              {String(criticalRiskCount).padStart(2, '0')}
+            <strong className="kpi-value">
+              {criticalRiskCount}
             </strong>
 
-            <small>DEMO / PLACEHOLDER</small>
+            <small className="kpi-note">Demo / placeholder</small>
           </article>
 
-          <article>
-            <span>Remediation Opportunity</span>
+          <article className="kpi-card">
+            <span className="kpi-label">Remediation Opportunity</span>
 
-            <strong>
-              {currencyFormatter.format(
-                remediationOpportunity,
-              )}
+            <strong className="kpi-value">
+              {formatMoneyOrDash(remediationOpportunity)}
             </strong>
 
-            <small>DEMO / PLACEHOLDER</small>
+            <small className="kpi-note">Demo / placeholder</small>
           </article>
 
-          <article>
-            <span>Insurance Coverage</span>
+          <article className="kpi-card">
+            <span className="kpi-label">Insurance Coverage</span>
 
-            <strong>
-              {currencyFormatter.format(
-                totalInsuranceCoverage,
-              )}
+            <strong className="kpi-value">
+              {formatMoneyOrDash(totalInsuranceCoverage)}
             </strong>
 
-            <small>DEMO / PLACEHOLDER</small>
+            <small className="kpi-note">Demo / placeholder</small>
           </article>
         </div>
       </section>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Report filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -256,7 +246,7 @@ const filteredReports = demoReports.filter((report) => {
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -265,8 +255,8 @@ const filteredReports = demoReports.filter((report) => {
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>Report Library</strong>
 
@@ -276,22 +266,22 @@ const filteredReports = demoReports.filter((report) => {
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Report</th>
-                <th>Type</th>
-                <th>Period</th>
-                <th>Status</th>
-                <th>Generated</th>
-                <th>Owner</th>
-                <th>Actions</th>
+                <th scope="col">Report</th>
+                <th scope="col">Type</th>
+                <th scope="col">Period</th>
+                <th scope="col">Status</th>
+                <th scope="col">Generated</th>
+                <th scope="col">Owner</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
@@ -299,7 +289,7 @@ const filteredReports = demoReports.filter((report) => {
               {filteredReports.map((report) => (
                 <tr key={report.id}>
                   <td>
-                    <div className="risk-name">
+                    <div className="cell-stack">
                       <strong>{report.name}</strong>
                       <span>{report.id}</span>
                     </div>
@@ -311,21 +301,19 @@ const filteredReports = demoReports.filter((report) => {
 
                   <td>
                     <span
-                      className={`risk-status ${report.status
-                        .toLowerCase()
-                        .replaceAll(' ', '-')}`}
+                      className={`badge badge--${slugify(report.status)}`}
                     >
                       {report.status}
                     </span>
                   </td>
 
-                  <td>{report.generatedAt}</td>
+                  <td>{formatDate(report.generatedAt)}</td>
 
                   <td>{report.owner}</td>
 
                   <td>
                     <button
-                      className="table-action"
+                      className="secondary-button"
                       type="button"
                     >
                       View
@@ -337,24 +325,19 @@ const filteredReports = demoReports.filter((report) => {
               {filteredReports.length === 0 && (
                 <tr>
                   <td colSpan={7}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No reports match the current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search or filter
-                        selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No reports match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -364,7 +347,7 @@ const filteredReports = demoReports.filter((report) => {
       </div>
 
       <section className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon" aria-hidden="true">↗</div>
 
         <div>
           <span className="eyebrow">

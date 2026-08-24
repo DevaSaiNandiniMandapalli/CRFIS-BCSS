@@ -6,20 +6,14 @@ import {
   calculateRemediationCost,
   calculateRemediationOpportunity,
 } from '../utils/financialMetrics'
+import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import { EmptyState } from '../components/States'
 import type {
   RemediationCategory,
   RemediationPriority,
   RemediationStatus,
 } from '../types/remediation'
-
-const currencyFormatter = new Intl.NumberFormat(
-  'en-US',
-  {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  },
-)
 
 function Remediation() {
   const [search, setSearch] = useState('')
@@ -108,14 +102,10 @@ function Remediation() {
 
   const overdueCount = 1
 
-  const totalCost = calculateRemediationCost(
-  demoRemediations,
-)
+  const totalCost = calculateRemediationCost(demoRemediations)
 
-const totalReduction =
-  calculateRemediationOpportunity(
-    demoRemediations,
-  )
+  const totalReduction =
+    calculateRemediationOpportunity(demoRemediations)
 
   const clearFilters = () => {
     setSearch('')
@@ -131,13 +121,13 @@ const totalReduction =
     category !== 'All'
 
   return (
-    <section className="remediation-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>Remediation</h2>
 
-            <span className="demo-badge">
+            <span className="chip">
               DEMO DATA
             </span>
           </div>
@@ -155,48 +145,44 @@ const totalReduction =
         >
           + Add Action
         </button>
-      </div>
+      </header>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>OPEN ACTIONS</span>
-          <strong>{openCount}</strong>
-          <small>Requires action</small>
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Open Actions</span>
+          <strong className="kpi-value">{openCount}</strong>
+          <small className="kpi-note">Requires action</small>
         </article>
 
-        <article className="risk-kpi critical-kpi">
-          <span>OVERDUE</span>
-          <strong>{overdueCount}</strong>
-          <small>Demo placeholder</small>
+        <article className="kpi-card accent">
+          <span className="kpi-label">Overdue</span>
+          <strong className="kpi-value">{overdueCount}</strong>
+          <small className="kpi-note">Demo placeholder</small>
         </article>
 
-        <article className="risk-kpi high-kpi">
-          <span>IN PROGRESS</span>
-          <strong>{inProgressCount}</strong>
-          <small>Currently being addressed</small>
+        <article className="kpi-card">
+          <span className="kpi-label">In Progress</span>
+          <strong className="kpi-value">{inProgressCount}</strong>
+          <small className="kpi-note">Currently being addressed</small>
         </article>
 
-        <article className="risk-kpi">
-          <span>COMPLETED</span>
-          <strong>{completedCount}</strong>
-          <small>Completed actions</small>
+        <article className="kpi-card">
+          <span className="kpi-label">Completed</span>
+          <strong className="kpi-value">{completedCount}</strong>
+          <small className="kpi-note">Completed actions</small>
         </article>
 
-        <article className="risk-kpi exposure-kpi">
-          <span>EXPECTED REDUCTION</span>
-
-          <strong>
-            {currencyFormatter.format(totalReduction)}
+        <article className="kpi-card">
+          <span className="kpi-label">Expected Reduction</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalReduction)}
           </strong>
-
-          <small>
-            Fictional placeholder value
-          </small>
+          <small className="kpi-note">Fictional placeholder value</small>
         </article>
       </div>
 
-      <div className="demo-notice">
-        <span className="demo-notice-icon">
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">
           i
         </span>
 
@@ -214,9 +200,9 @@ const totalReduction =
         </div>
       </div>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Remediation filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -335,7 +321,7 @@ const totalReduction =
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -344,8 +330,8 @@ const totalReduction =
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>
               Remediation Inventory
@@ -357,23 +343,25 @@ const totalReduction =
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Action</th>
-                <th>Related Risk</th>
-                <th>Asset</th>
-                <th>Priority</th>
-                <th>Owner</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Expected Reduction</th>
+                <th scope="col">Action</th>
+                <th scope="col">Related Risk</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Owner</th>
+                <th scope="col">Due Date</th>
+                <th scope="col">Status</th>
+                <th scope="col" className="money">
+                  Expected Reduction
+                </th>
               </tr>
             </thead>
 
@@ -388,7 +376,7 @@ const totalReduction =
                 return (
                   <tr key={item.id}>
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {item.action}
                         </strong>
@@ -400,7 +388,7 @@ const totalReduction =
                     </td>
 
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {linkedRisk?.risk ??
                             item.relatedRisk}
@@ -413,7 +401,7 @@ const totalReduction =
                     </td>
 
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {linkedAsset?.name ??
                             item.asset}
@@ -427,7 +415,7 @@ const totalReduction =
 
                     <td>
                       <span
-                        className={`risk-severity ${item.priority.toLowerCase()}`}
+                        className={`badge badge--${slugify(item.priority)}`}
                       >
                         {item.priority}
                       </span>
@@ -438,22 +426,23 @@ const totalReduction =
                     </td>
 
                     <td>
-                      {item.dueDate}
+                      {formatDate(item.dueDate)}
                     </td>
 
                     <td>
                       <span
-                        className={`risk-status ${item.status
-                          .toLowerCase()
-                          .replaceAll(' ', '-')}`}
+                        className={`badge badge--${slugify(item.status)}`}
                       >
                         {item.status}
                       </span>
                     </td>
 
-                    <td className="financial-value">
-                      {currencyFormatter.format(
-                        item.expectedReduction,
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(
+                          item.expectedReduction,
+                          item.currency,
+                        ),
                       )}
                     </td>
                   </tr>
@@ -463,25 +452,19 @@ const totalReduction =
               {filteredRemediations.length === 0 && (
                 <tr>
                   <td colSpan={8}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No remediation actions match
-                        the current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search or
-                        filter selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No remediation actions match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -491,7 +474,7 @@ const totalReduction =
       </div>
 
       <div className="intelligence-panel">
-        <div className="intelligence-icon">
+        <div className="intelligence-icon" aria-hidden="true">
           ↗
         </div>
 
@@ -519,7 +502,7 @@ const totalReduction =
           </span>
 
           <strong>
-            {currencyFormatter.format(totalCost)}
+            {formatMoneyOrDash(totalCost)}
           </strong>
         </div>
       </div>

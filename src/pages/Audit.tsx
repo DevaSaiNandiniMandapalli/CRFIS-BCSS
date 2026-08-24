@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { demoAudits } from '../data/demoAudits'
 import { calculateTotalAuditFindings } from '../utils/financialMetrics'
+import { formatDate, formatPercent, slugify } from '../utils/format'
+import { EmptyState } from '../components/States'
 
 const statuses = [
   'All Statuses',
@@ -82,7 +84,7 @@ function Audit() {
   const totalAudits = demoAudits.length
 
   const totalFindings =
-  calculateTotalAuditFindings(demoAudits)
+    calculateTotalAuditFindings(demoAudits)
 
   const completedAudits = demoAudits.filter(
     (audit) => audit.status === 'Completed',
@@ -103,29 +105,28 @@ function Audit() {
   )
 
   return (
-    <div className="audit-page">
-      <section className="module-intro">
-        <div>
+    <div className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
           <span className="eyebrow">
             AUDIT &amp; GOVERNANCE
           </span>
 
-          <h2>Audit</h2>
+          <div className="page-title-row">
+            <h2>Audit</h2>
+
+            <span className="chip">DEMO DATA</span>
+          </div>
 
           <p>
             Audit readiness, findings, evidence, ownership, and
             governance visibility.
           </p>
         </div>
+      </header>
 
-        <span className="status-pill">
-          <span className="status-dot" />
-          DEMO DATA
-        </span>
-      </section>
-
-      <section className="demo-notice">
-        <div className="demo-notice-icon">i</div>
+      <section className="notice">
+        <div className="notice-icon" aria-hidden="true">i</div>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -138,71 +139,65 @@ function Audit() {
         </div>
       </section>
 
-      <section className="metrics" aria-label="Audit metrics">
-        <article className="metric-card">
-          <span>Total Audits</span>
+      <section className="kpi-grid" aria-label="Audit metrics">
+        <article className="kpi-card">
+          <span className="kpi-label">Total Audits</span>
 
-          <strong>
-            {String(totalAudits).padStart(2, '0')}
-          </strong>
+          <strong className="kpi-value">{totalAudits}</strong>
 
-          <small>DEMO / CALCULATED</small>
+          <small className="kpi-note">Demo / calculated</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Audit programs tracked
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Open Findings</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Open Findings</span>
 
-          <strong>
-            {String(totalFindings).padStart(2, '0')}
-          </strong>
+          <strong className="kpi-value">{totalFindings}</strong>
 
-          <small>DEMO / CALCULATED</small>
+          <small className="kpi-note">Demo / calculated</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Findings across audit programs
           </div>
         </article>
 
-        <article className="metric-card accent">
-          <span>High / Critical Findings</span>
+        <article className="kpi-card accent">
+          <span className="kpi-label">High / Critical Findings</span>
 
-          <strong>
-            {String(highCriticalFindings).padStart(2, '0')}
-          </strong>
+          <strong className="kpi-value">{highCriticalFindings}</strong>
 
-          <small>DEMO / CALCULATED</small>
+          <small className="kpi-note">Demo / calculated</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Priority governance items
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Evidence Completion</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Evidence Completion</span>
 
-          <strong>{evidenceCompletion}%</strong>
+          <strong className="kpi-value">
+            {formatPercent(evidenceCompletion)}
+          </strong>
 
-          <small>DEMO / ILLUSTRATIVE</small>
+          <small className="kpi-note">Demo / illustrative</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Completed audit programs
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Overdue Actions</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Overdue Actions</span>
 
-          <strong>
-            {String(overdueAudits).padStart(2, '0')}
-          </strong>
+          <strong className="kpi-value">{overdueAudits}</strong>
 
-          <small>DEMO / CALCULATED</small>
+          <small className="kpi-note">Demo / calculated</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Requires attention
           </div>
         </article>
@@ -221,8 +216,8 @@ function Audit() {
         </span>
       </section>
 
-      <section className="filter-bar" aria-label="Audit filters">
-        <div className="filter-search">
+      <section className="toolbar" role="group" aria-label="Audit filters">
+        <label className="search-field">
           <span aria-hidden="true">⌕</span>
 
           <input
@@ -232,57 +227,51 @@ function Audit() {
             onChange={(event) => setSearch(event.target.value)}
             aria-label="Search audits"
           />
-        </div>
-
-        <label>
-          <span>Status</span>
-
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value)
-            }
-            aria-label="Filter audits by status"
-          >
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
         </label>
 
-        <label>
-          <span>Framework</span>
+        <select
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value)
+          }
+          aria-label="Filter audits by status"
+        >
+          {statuses.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
 
-          <select
-            value={frameworkFilter}
-            onChange={(event) =>
-              setFrameworkFilter(event.target.value)
-            }
-            aria-label="Filter audits by framework"
-          >
-            {frameworks.map((framework) => (
-              <option key={framework} value={framework}>
-                {framework}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          value={frameworkFilter}
+          onChange={(event) =>
+            setFrameworkFilter(event.target.value)
+          }
+          aria-label="Filter audits by framework"
+        >
+          {frameworks.map((framework) => (
+            <option key={framework} value={framework}>
+              {framework}
+            </option>
+          ))}
+        </select>
       </section>
 
-      <section className="risk-panel">
-        <div className="risk-table-wrap">
+      <section className="data-panel">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Audit</th>
-                <th>Framework</th>
-                <th>Scope</th>
-                <th>Status</th>
-                <th>Findings</th>
-                <th>Owner</th>
-                <th>Due Date</th>
+                <th scope="col">Audit</th>
+                <th scope="col">Framework</th>
+                <th scope="col">Scope</th>
+                <th scope="col">Status</th>
+                <th scope="col" className="money">
+                  Findings
+                </th>
+                <th scope="col">Owner</th>
+                <th scope="col">Due Date</th>
               </tr>
             </thead>
 
@@ -300,27 +289,25 @@ function Audit() {
 
                     <td>
                       <span
-                        className={`status-badge ${audit.status
-                          .toLowerCase()
-                          .replaceAll(' ', '-')}`}
+                        className={`badge badge--${slugify(audit.status)}`}
                       >
                         {audit.status}
                       </span>
                     </td>
 
-                    <td>{audit.findings}</td>
+                    <td className="money">{audit.findings}</td>
 
                     <td>{audit.owner}</td>
 
-                    <td>{audit.dueDate}</td>
+                    <td>{formatDate(audit.dueDate)}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td colSpan={7}>
-                    <div className="empty-table-state">
-                      No demo audits match the selected filters.
-                    </div>
+                    <EmptyState
+                      title="No demo audits match the selected filters."
+                    />
                   </td>
                 </tr>
               )}
@@ -341,17 +328,17 @@ function Audit() {
         </span>
       </section>
 
-      <section className="risk-panel">
-        <div className="risk-table-wrap">
+      <section className="data-panel">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Finding</th>
-                <th>Severity</th>
-                <th>Audit</th>
-                <th>Owner</th>
-                <th>Due Date</th>
-                <th>Status</th>
+                <th scope="col">Finding</th>
+                <th scope="col">Severity</th>
+                <th scope="col">Audit</th>
+                <th scope="col">Owner</th>
+                <th scope="col">Due Date</th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
 
@@ -361,14 +348,14 @@ function Audit() {
                   <td>
                     <strong>{item.finding}</strong>
 
-                    <small className="table-secondary">
+                    <span className="table-secondary">
                       {item.id}
-                    </small>
+                    </span>
                   </td>
 
                   <td>
                     <span
-                      className={`severity ${item.severity.toLowerCase()}`}
+                      className={`badge badge--${slugify(item.severity)}`}
                     >
                       {item.severity}
                     </span>
@@ -378,9 +365,15 @@ function Audit() {
 
                   <td>{item.owner}</td>
 
-                  <td>{item.dueDate}</td>
+                  <td>{formatDate(item.dueDate)}</td>
 
-                  <td>{item.status}</td>
+                  <td>
+                    <span
+                      className={`badge badge--${slugify(item.status)}`}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -389,7 +382,7 @@ function Audit() {
       </section>
 
       <section className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon" aria-hidden="true">↗</div>
 
         <div>
           <span className="eyebrow">
@@ -408,7 +401,7 @@ function Audit() {
           </p>
         </div>
 
-        <span className="ai-governance-badge">
+        <span className="chip chip--muted">
           HUMAN-IN-THE-LOOP
         </span>
       </section>

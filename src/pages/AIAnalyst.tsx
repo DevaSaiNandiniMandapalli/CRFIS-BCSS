@@ -4,10 +4,12 @@ import { demoRisks } from '../data/demoRisks'
 import { demoRemediations } from '../data/demoRemediations'
 import { demoInsurance } from '../data/demoInsurance'
 import type { AnalystMessage } from '../types/aiAnalyst'
+import { toMoney } from '../types/money'
 import {
   calculateRemediationOpportunity,
   calculateTotalInsuranceCoverage,
 } from '../utils/financialMetrics'
+import { formatMoneyOrDash } from '../utils/format'
 
 const suggestedQuestions = [
   'Which risks have the highest financial exposure?',
@@ -15,12 +17,6 @@ const suggestedQuestions = [
   'Where are the biggest remediation opportunities?',
   'How does insurance coverage compare with exposure?',
 ]
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function AIAnalyst() {
   const [messages, setMessages] =
@@ -102,12 +98,12 @@ function AIAnalyst() {
   }
 
   return (
-    <section className="ai-analyst-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>AI Analyst</h2>
-            <span className="demo-badge">DEMO AI</span>
+            <span className="chip">DEMO AI</span>
           </div>
 
           <p>
@@ -120,10 +116,10 @@ function AIAnalyst() {
           <span className="status-dot" />
           Analyst interface ready
         </div>
-      </div>
+      </header>
 
-      <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -151,7 +147,12 @@ function AIAnalyst() {
             <span>Highest Exposure</span>
 
             <strong>
-              {currencyFormatter.format(highestExposureRisk.exposure)}
+              {formatMoneyOrDash(
+                toMoney(
+                  highestExposureRisk.exposure,
+                  highestExposureRisk.currency,
+                ),
+              )}
             </strong>
 
             <small>{highestExposureRisk.risk}</small>
@@ -175,7 +176,7 @@ function AIAnalyst() {
             <span>Remediation Focus</span>
 
             <strong>
-              {currencyFormatter.format(remediationOpportunity)}
+              {formatMoneyOrDash(remediationOpportunity)}
             </strong>
 
             <small>Illustrative opportunity</small>
@@ -187,7 +188,7 @@ function AIAnalyst() {
             <span>Coverage Context</span>
 
             <strong>
-              {currencyFormatter.format(totalInsuranceCoverage)}
+              {formatMoneyOrDash(totalInsuranceCoverage)}
             </strong>
 
             <small>Demo insurance coverage</small>
@@ -208,7 +209,7 @@ function AIAnalyst() {
               <h2>Ask the Analyst</h2>
             </div>
 
-            <span className="ai-demo-label">DEMO MODE</span>
+            <span className="chip chip--muted">DEMO MODE</span>
           </div>
 
           <div
@@ -334,7 +335,7 @@ function AIAnalyst() {
           </p>
         </div>
 
-        <span className="ai-governance-badge">
+        <span className="chip chip--muted">
           HUMAN-IN-THE-LOOP
         </span>
       </section>

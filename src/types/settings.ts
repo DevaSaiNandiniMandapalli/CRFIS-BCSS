@@ -1,4 +1,12 @@
+import type { Money } from './money'
+
 export type ThemePreference = 'light' | 'dark' | 'system'
+
+/** A financial threshold with an explicit currency denomination. */
+export interface RiskThreshold {
+  amount: Money
+  description: string
+}
 
 export interface PlatformSettings {
   workspaceName: string
@@ -8,8 +16,8 @@ export interface PlatformSettings {
 }
 
 export interface RiskSettings {
-  criticalThreshold: string
-  highThreshold: string
+  criticalThreshold: RiskThreshold
+  highThreshold: RiskThreshold
   financialModel: string
 }
 

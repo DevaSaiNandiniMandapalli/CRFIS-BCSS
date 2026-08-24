@@ -1,4 +1,5 @@
 import type { CRFISSettings } from '../types/settings'
+import { toMoney } from '../types/money'
 
 export const demoSettings: CRFISSettings = {
   platform: {
@@ -11,8 +12,14 @@ export const demoSettings: CRFISSettings = {
   theme: 'system',
 
   risk: {
-    criticalThreshold: '$1M+ financial exposure',
-    highThreshold: '$500K+ financial exposure',
+    criticalThreshold: {
+      amount: toMoney(1000000, 'USD'),
+      description: 'Total financial exposure or more',
+    },
+    highThreshold: {
+      amount: toMoney(500000, 'USD'),
+      description: 'Total financial exposure or more',
+    },
     financialModel: 'Illustrative financial impact model',
   },
 

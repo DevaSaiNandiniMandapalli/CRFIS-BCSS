@@ -1,3 +1,5 @@
+import type { CurrencyCode } from './money'
+
 export type RemediationPriority =
   | 'Critical'
   | 'High'
@@ -39,6 +41,12 @@ export interface Remediation {
   owner: string
   dueDate: string
   status: RemediationStatus
+
+  /*
+   * Currency of estimatedCost and expectedReduction. Vendor contracts may
+   * be issued in their own currency, so the denomination is explicit.
+   */
+  currency: CurrencyCode
   estimatedCost: number
   expectedReduction: number
   isDemo: true

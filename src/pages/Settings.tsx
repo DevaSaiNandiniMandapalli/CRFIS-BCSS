@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { demoSettings } from '../data/demoSettings'
 import type { CRFISSettings, ThemePreference } from '../types/settings'
+import { formatMoney } from '../utils/format'
 
 function Settings() {
   const [settings, setSettings] =
@@ -65,8 +66,8 @@ function Settings() {
   }
 
   return (
-    <div className="settings-page">
-      <section className="settings-intro">
+    <div className="page">
+      <header className="page-intro settings-intro">
         <div>
           <span className="eyebrow">PLATFORM CONFIGURATION</span>
 
@@ -92,7 +93,7 @@ function Settings() {
             Save Settings
           </button>
         </div>
-      </section>
+      </header>
 
       {saved && (
         <div className="settings-saved">
@@ -100,8 +101,8 @@ function Settings() {
         </div>
       )}
 
-      <section className="settings-notice">
-        <div className="settings-notice-icon">i</div>
+      <section className="notice">
+        <div className="notice-icon" aria-hidden="true">i</div>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -196,12 +197,22 @@ function Settings() {
           <div className="settings-fields">
             <div className="settings-field">
               <span>Critical Threshold</span>
-              <strong>{settings.risk.criticalThreshold}</strong>
+              <strong>
+                {formatMoney(settings.risk.criticalThreshold.amount, {
+                  compact: true,
+                })}
+                + · {settings.risk.criticalThreshold.description}
+              </strong>
             </div>
 
             <div className="settings-field">
               <span>High Threshold</span>
-              <strong>{settings.risk.highThreshold}</strong>
+              <strong>
+                {formatMoney(settings.risk.highThreshold.amount, {
+                  compact: true,
+                })}
+                + · {settings.risk.highThreshold.description}
+              </strong>
             </div>
 
             <div className="settings-field settings-field-wide">
@@ -344,7 +355,7 @@ function Settings() {
           </p>
         </div>
 
-        <span className="settings-governance-badge">
+        <span className="chip chip--muted">
           HUMAN-IN-THE-LOOP
         </span>
       </section>

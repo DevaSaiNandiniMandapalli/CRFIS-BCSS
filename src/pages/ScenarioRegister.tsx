@@ -3,17 +3,14 @@ import { demoScenarios } from '../data/demoScenarios'
 import { demoRisks } from '../data/demoRisks'
 import { demoAssets } from '../data/demoAssets'
 import { calculateTotalScenarioImpact } from '../utils/financialMetrics'
+import { formatMoneyOrDash, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import { EmptyState } from '../components/States'
 import type {
   ScenarioCategory,
   ScenarioSeverity,
   ScenarioStatus,
 } from '../types/scenario'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function ScenarioRegister() {
   const [search, setSearch] = useState('')
@@ -86,7 +83,7 @@ function ScenarioRegister() {
     (scenario) => scenario.status === 'Under Review',
   ).length
 
- const totalImpact = calculateTotalScenarioImpact(demoScenarios)
+  const totalImpact = calculateTotalScenarioImpact(demoScenarios)
 
   const clearFilters = () => {
     setSearch('')
@@ -102,12 +99,12 @@ function ScenarioRegister() {
     category !== 'All'
 
   return (
-    <section className="scenario-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>Scenario Analysis</h2>
-            <span className="demo-badge">DEMO DATA</span>
+            <span className="chip">DEMO DATA</span>
           </div>
 
           <p>
@@ -119,42 +116,44 @@ function ScenarioRegister() {
         <button className="primary-button" type="button">
           + Add Scenario
         </button>
+      </header>
+
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Active Scenarios</span>
+          <strong className="kpi-value">{demoScenarios.length}</strong>
+          <small className="kpi-note">Demo / placeholder</small>
+        </article>
+
+        <article className="kpi-card accent">
+          <span className="kpi-label">Critical</span>
+          <strong className="kpi-value">{criticalCount}</strong>
+          <small className="kpi-note">Highest impact scenarios</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">High</span>
+          <strong className="kpi-value">{highCount}</strong>
+          <small className="kpi-note">Priority scenarios</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Under Review</span>
+          <strong className="kpi-value">{underReviewCount}</strong>
+          <small className="kpi-note">Awaiting assessment</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Demo Estimated Impact</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalImpact)}
+          </strong>
+          <small className="kpi-note">Fictional placeholder value</small>
+        </article>
       </div>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>ACTIVE SCENARIOS</span>
-          <strong>{demoScenarios.length}</strong>
-          <small>DEMO / PLACEHOLDER</small>
-        </article>
-
-        <article className="risk-kpi critical-kpi">
-          <span>CRITICAL</span>
-          <strong>{criticalCount}</strong>
-          <small>Highest impact scenarios</small>
-        </article>
-
-        <article className="risk-kpi high-kpi">
-          <span>HIGH</span>
-          <strong>{highCount}</strong>
-          <small>Priority scenarios</small>
-        </article>
-
-        <article className="risk-kpi">
-          <span>UNDER REVIEW</span>
-          <strong>{underReviewCount}</strong>
-          <small>Awaiting assessment</small>
-        </article>
-
-        <article className="risk-kpi exposure-kpi">
-          <span>DEMO ESTIMATED IMPACT</span>
-          <strong>{currencyFormatter.format(totalImpact)}</strong>
-          <small>Fictional placeholder value</small>
-        </article>
-      </div>
-
-      <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -168,9 +167,9 @@ function ScenarioRegister() {
         </div>
       </div>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Scenario filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -235,7 +234,7 @@ function ScenarioRegister() {
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -244,8 +243,8 @@ function ScenarioRegister() {
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>Scenario Inventory</strong>
 
@@ -255,25 +254,27 @@ function ScenarioRegister() {
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Scenario</th>
-                <th>Related Risk</th>
-                <th>Asset</th>
-                <th>Category</th>
-                <th>Severity</th>
-                <th>Probability</th>
-                <th>Estimated Impact</th>
-                <th>Business Impact</th>
-                <th>Status</th>
-                <th>Owner</th>
+                <th scope="col">Scenario</th>
+                <th scope="col">Related Risk</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Category</th>
+                <th scope="col">Severity</th>
+                <th scope="col">Probability</th>
+                <th scope="col" className="money">
+                  Estimated Impact
+                </th>
+                <th scope="col">Business Impact</th>
+                <th scope="col">Status</th>
+                <th scope="col">Owner</th>
               </tr>
             </thead>
 
@@ -285,14 +286,14 @@ function ScenarioRegister() {
                 return (
                   <tr key={scenario.id}>
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>{scenario.name}</strong>
                         <span>{scenario.id}</span>
                       </div>
                     </td>
 
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {relatedRisk?.risk ?? 'Unknown Risk'}
                         </strong>
@@ -301,7 +302,7 @@ function ScenarioRegister() {
                     </td>
 
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {relatedAsset?.name ?? 'Unknown Asset'}
                         </strong>
@@ -313,7 +314,7 @@ function ScenarioRegister() {
 
                     <td>
                       <span
-                        className={`risk-severity ${scenario.severity.toLowerCase()}`}
+                        className={`badge badge--${slugify(scenario.severity)}`}
                       >
                         {scenario.severity}
                       </span>
@@ -321,9 +322,12 @@ function ScenarioRegister() {
 
                     <td>{scenario.probability}</td>
 
-                    <td className="financial-value">
-                      {currencyFormatter.format(
-                        scenario.estimatedImpact,
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(
+                          scenario.estimatedImpact,
+                          scenario.currency,
+                        ),
                       )}
                     </td>
 
@@ -331,9 +335,7 @@ function ScenarioRegister() {
 
                     <td>
                       <span
-                        className={`risk-status ${scenario.status
-                          .toLowerCase()
-                          .replaceAll(' ', '-')}`}
+                        className={`badge badge--${slugify(scenario.status)}`}
                       >
                         {scenario.status}
                       </span>
@@ -347,23 +349,19 @@ function ScenarioRegister() {
               {filteredScenarios.length === 0 && (
                 <tr>
                   <td colSpan={10}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No scenarios match the current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search or filter selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No scenarios match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -373,7 +371,7 @@ function ScenarioRegister() {
       </div>
 
       <div className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon" aria-hidden="true">↗</div>
 
         <div>
           <span className="eyebrow">
@@ -395,7 +393,7 @@ function ScenarioRegister() {
         <div className="intelligence-metric">
           <span>DEMO TOTAL IMPACT</span>
           <strong>
-            {currencyFormatter.format(totalImpact)}
+            {formatMoneyOrDash(totalImpact)}
           </strong>
         </div>
       </div>

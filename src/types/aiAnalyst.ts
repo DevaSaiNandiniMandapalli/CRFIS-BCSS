@@ -7,11 +7,3 @@ export interface AnalystMessage {
   timestamp: string
   isDemo: true
 }
-
-export interface AnalystInsight {
-  title: string
-  value: string
-  description: string
-  severity: 'Critical' | 'High' | 'Medium' | 'Informational'
-  isDemo: true
-}

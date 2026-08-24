@@ -1,7 +1,17 @@
-import type {
-  AnalystInsight,
-  AnalystMessage,
-} from '../types/aiAnalyst'
+import type { AnalystMessage } from '../types/aiAnalyst'
+import type { Money } from '../types/money'
+import { formatMoney } from '../utils/format'
+
+/*
+ * Demo conversation fixtures.
+ *
+ * Financial figures inside narrative text are generated from structured
+ * Money values through the shared formatter - currency symbols are never
+ * baked into fixture strings.
+ */
+
+const ransomwareExposure: Money = { amount: '1250000', currency: 'USD' }
+const dataExfiltrationExposure: Money = { amount: '760000', currency: 'USD' }
 
 export const demoAnalystMessages: AnalystMessage[] = [
   {
@@ -23,40 +33,8 @@ export const demoAnalystMessages: AnalystMessage[] = [
   {
     id: 'MSG-003',
     role: 'assistant',
-    content:
-      'Based on the current demonstration dataset, Ransomware Exposure represents the largest individual exposure at $1.25M, followed by Customer Data Exfiltration at $760K. These values are fictional placeholders and are not production risk calculations.',
+    content: `Based on the current demonstration dataset, Ransomware Exposure represents the largest individual exposure at ${formatMoney(ransomwareExposure)}, followed by Customer Data Exfiltration at ${formatMoney(dataExfiltrationExposure)}. These values are fictional placeholders and are not production risk calculations.`,
     timestamp: '09:02',
-    isDemo: true,
-  },
-]
-
-export const demoAnalystInsights: AnalystInsight[] = [
-  {
-    title: 'Highest Exposure',
-    value: '$1.25M',
-    description: 'Ransomware Exposure',
-    severity: 'Critical',
-    isDemo: true,
-  },
-  {
-    title: 'Priority Risk',
-    value: 'Critical',
-    description: 'Core Infrastructure',
-    severity: 'Critical',
-    isDemo: true,
-  },
-  {
-    title: 'Remediation Focus',
-    value: '$890K',
-    description: 'Illustrative opportunity',
-    severity: 'High',
-    isDemo: true,
-  },
-  {
-    title: 'Coverage Context',
-    value: '$14.0M',
-    description: 'Demo insurance coverage',
-    severity: 'Informational',
     isDemo: true,
   },
 ]

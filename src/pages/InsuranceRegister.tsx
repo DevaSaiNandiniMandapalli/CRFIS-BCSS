@@ -8,16 +8,13 @@ import {
   calculateTotalInsuranceDeductible,
   calculateInsuranceCoverageGap,
 } from '../utils/financialMetrics'
+import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import { EmptyState } from '../components/States'
 import type {
   InsuranceCoverageType,
   InsuranceStatus,
 } from '../types/insurance'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function InsuranceRegister() {
   const [search, setSearch] = useState('')
@@ -93,12 +90,12 @@ function InsuranceRegister() {
     coverageType !== 'All'
 
   return (
-    <section className="insurance-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>Insurance Portfolio</h2>
-            <span className="demo-badge">DEMO DATA</span>
+            <span className="chip">DEMO DATA</span>
           </div>
 
           <p>
@@ -110,46 +107,46 @@ function InsuranceRegister() {
         <button className="primary-button" type="button">
           + Add Policy
         </button>
+      </header>
+
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Active Policies</span>
+          <strong className="kpi-value">{activeCount}</strong>
+          <small className="kpi-note">Demo / placeholder</small>
+        </article>
+
+        <article className="kpi-card accent">
+          <span className="kpi-label">Expiring Soon</span>
+          <strong className="kpi-value">{expiringCount}</strong>
+          <small className="kpi-note">Requires attention</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Under Review</span>
+          <strong className="kpi-value">{reviewCount}</strong>
+          <small className="kpi-note">Coverage assessment</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Total Coverage</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalCoverage)}
+          </strong>
+          <small className="kpi-note">Fictional placeholder value</small>
+        </article>
+
+        <article className="kpi-card">
+          <span className="kpi-label">Annual Premium</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalPremium)}
+          </strong>
+          <small className="kpi-note">Fictional placeholder value</small>
+        </article>
       </div>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>ACTIVE POLICIES</span>
-          <strong>{activeCount}</strong>
-          <small>DEMO / PLACEHOLDER</small>
-        </article>
-
-        <article className="risk-kpi critical-kpi">
-          <span>EXPIRING SOON</span>
-          <strong>{expiringCount}</strong>
-          <small>Requires attention</small>
-        </article>
-
-        <article className="risk-kpi high-kpi">
-          <span>UNDER REVIEW</span>
-          <strong>{reviewCount}</strong>
-          <small>Coverage assessment</small>
-        </article>
-
-        <article className="risk-kpi">
-          <span>TOTAL COVERAGE</span>
-          <strong>
-            {currencyFormatter.format(totalCoverage)}
-          </strong>
-          <small>Fictional placeholder value</small>
-        </article>
-
-        <article className="risk-kpi exposure-kpi">
-          <span>ANNUAL PREMIUM</span>
-          <strong>
-            {currencyFormatter.format(totalPremium)}
-          </strong>
-          <small>Fictional placeholder value</small>
-        </article>
-      </div>
-
-      <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -163,9 +160,9 @@ function InsuranceRegister() {
         </div>
       </div>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Policy filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -213,7 +210,7 @@ function InsuranceRegister() {
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -222,8 +219,8 @@ function InsuranceRegister() {
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>Insurance Inventory</strong>
 
@@ -233,23 +230,27 @@ function InsuranceRegister() {
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Policy</th>
-                <th>Provider</th>
-                <th>Coverage</th>
-                <th>Coverage Limit</th>
-                <th>Deductible</th>
-                <th>Expiration</th>
-                <th>Status</th>
-                <th>Covered Assets</th>
+                <th scope="col">Policy</th>
+                <th scope="col">Provider</th>
+                <th scope="col">Coverage</th>
+                <th scope="col" className="money">
+                  Coverage Limit
+                </th>
+                <th scope="col" className="money">
+                  Deductible
+                </th>
+                <th scope="col">Expiration</th>
+                <th scope="col">Status</th>
+                <th scope="col">Covered Assets</th>
               </tr>
             </thead>
 
@@ -257,7 +258,7 @@ function InsuranceRegister() {
               {filteredPolicies.map((policy) => (
                 <tr key={policy.id}>
                   <td>
-                    <div className="risk-name">
+                    <div className="cell-stack">
                       <strong>{policy.policyNumber}</strong>
                       <span>{policy.id}</span>
                     </div>
@@ -267,28 +268,30 @@ function InsuranceRegister() {
 
                   <td>{policy.coverageType}</td>
 
-                  <td className="financial-value">
-                    {currencyFormatter.format(policy.coverageLimit)}
+                  <td className="money">
+                    {formatMoneyOrDash(
+                      toMoney(policy.coverageLimit, policy.currency),
+                    )}
                   </td>
 
-                  <td className="financial-value">
-                    {currencyFormatter.format(policy.deductible)}
+                  <td className="money">
+                    {formatMoneyOrDash(
+                      toMoney(policy.deductible, policy.currency),
+                    )}
                   </td>
 
-                  <td>{policy.expirationDate}</td>
+                  <td>{formatDate(policy.expirationDate)}</td>
 
                   <td>
                     <span
-                      className={`risk-status ${policy.status
-                        .toLowerCase()
-                        .replaceAll(' ', '-')}`}
+                      className={`badge badge--${slugify(policy.status)}`}
                     >
                       {policy.status}
                     </span>
                   </td>
 
                   <td>
-                    <div className="risk-name">
+                    <div className="cell-stack">
                       <strong>
                         {policy.assetIds.length} assets
                       </strong>
@@ -309,23 +312,19 @@ function InsuranceRegister() {
               {filteredPolicies.length === 0 && (
                 <tr>
                   <td colSpan={8}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No policies match the current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search or filter selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No policies match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -335,7 +334,7 @@ function InsuranceRegister() {
       </div>
 
       <div className="intelligence-panel">
-        <div className="intelligence-icon">↗</div>
+        <div className="intelligence-icon" aria-hidden="true">↗</div>
 
         <div>
           <span className="eyebrow">
@@ -353,24 +352,30 @@ function InsuranceRegister() {
           </p>
         </div>
 
-        <div className="intelligence-metric">
-          <span>DEMO TOTAL COVERAGE</span>
+        <div className="intelligence-metrics">
+          <div className="intelligence-metric">
+            <span>DEMO TOTAL COVERAGE</span>
 
-          <strong>
-            {currencyFormatter.format(totalCoverage)}
-          </strong>
+            <strong>
+              {formatMoneyOrDash(totalCoverage)}
+            </strong>
+          </div>
 
-          <span>DEMO TOTAL DEDUCTIBLE</span>
+          <div className="intelligence-metric">
+            <span>DEMO TOTAL DEDUCTIBLE</span>
 
-          <strong>
-            {currencyFormatter.format(totalDeductible)}
-          </strong>
+            <strong>
+              {formatMoneyOrDash(totalDeductible)}
+            </strong>
+          </div>
 
-          <span>DEMO COVERAGE GAP</span>
+          <div className="intelligence-metric">
+            <span>DEMO COVERAGE GAP</span>
 
-          <strong>
-            {currencyFormatter.format(coverageGap)}
-          </strong>
+            <strong>
+              {formatMoneyOrDash(coverageGap)}
+            </strong>
+          </div>
         </div>
       </div>
     </section>

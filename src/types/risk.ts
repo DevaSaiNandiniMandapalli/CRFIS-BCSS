@@ -1,3 +1,5 @@
+import type { CurrencyCode } from './money'
+
 export type RiskSeverity =
   | 'Critical'
   | 'High'
@@ -37,7 +39,15 @@ export interface Risk {
   category: RiskCategory
   severity: RiskSeverity
   likelihood: RiskLikelihood
+
+  /*
+   * Currency of exposure. Exposure is assessed against an asset, so it
+   * defaults to the asset's operating currency - but it is stored
+   * explicitly rather than derived, so aggregation can never guess.
+   */
+  currency: CurrencyCode
   exposure: number
+
   status: RiskStatus
   owner: string
   lastUpdated: string

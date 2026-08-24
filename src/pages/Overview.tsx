@@ -1,5 +1,6 @@
 import { demoRisks } from '../data/demoRisks'
 import { demoRemediations } from '../data/demoRemediations'
+import { toMoney } from '../types/money'
 import {
   calculateTotalExposure,
   calculateRemediationOpportunity,
@@ -7,15 +8,9 @@ import {
   calculateNetRemediationBenefit,
   calculateReductionToCostRatio,
   calculateRemainingExposure,
+  calculateAnnualizedLossExpectancy,
 } from '../utils/financialMetrics'
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+import { formatMoneyOrDash, formatRatio, slugify } from '../utils/format'
 
 function Overview() {
   const totalExposure = calculateTotalExposure(demoRisks)
@@ -46,7 +41,8 @@ function Overview() {
    * This is an illustrative demonstration metric,
    * not a production loss model.
    */
-  const annualizedLossExpectancy = totalExposure * 0.25
+  const annualizedLossExpectancy =
+    calculateAnnualizedLossExpectancy(demoRisks)
 
   return (
     <>
@@ -67,114 +63,119 @@ function Overview() {
         </div>
       </section>
 
-      <section className="metrics" aria-label="Financial risk metrics">
-        <article className="metric-card">
-          <span>Total Financial Exposure</span>
+      <section className="kpi-grid" aria-label="Financial risk metrics">
+        <article className="kpi-card">
+          <span className="kpi-label">Total Financial Exposure</span>
 
-          <strong>{formatCurrency(totalExposure)}</strong>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalExposure)}
+          </strong>
 
-          <small>DEMO / PLACEHOLDER</small>
+          <small className="kpi-note">Demo / placeholder</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Illustrative exposure
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Annualized Loss Expectancy</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Annualized Loss Expectancy</span>
 
-          <strong>{formatCurrency(annualizedLossExpectancy)}</strong>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(annualizedLossExpectancy)}
+          </strong>
 
-          <small>DEMO / ILLUSTRATIVE MODEL</small>
+          <small className="kpi-note">Demo / illustrative model</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             25% illustrative exposure factor
           </div>
         </article>
 
-        <article className="metric-card accent">
-          <span>Critical Risks</span>
+        <article className="kpi-card accent">
+          <span className="kpi-label">Critical Risks</span>
 
-          <strong>
-            {String(criticalRisks).padStart(2, '0')}
-          </strong>
+          <strong className="kpi-value">{criticalRisks}</strong>
 
-          <small>DEMO / PLACEHOLDER</small>
+          <small className="kpi-note">Requires attention</small>
 
-          <div className="metric-trend">
-            Requires attention
+          <div className="kpi-trend">
+            Demo / placeholder count
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Remediation Opportunity</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Remediation Opportunity</span>
 
-          <strong>
-            {formatCurrency(remediationOpportunity)}
+          <strong className="kpi-value">
+            {formatMoneyOrDash(remediationOpportunity)}
           </strong>
 
-          <small>DEMO / PLACEHOLDER</small>
+          <small className="kpi-note">Demo / placeholder</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Potential exposure reduction
           </div>
         </article>
       </section>
 
-      <section className="metrics" aria-label="Remediation financial metrics">
-        <article className="metric-card">
-          <span>Remaining Demo Exposure</span>
+      <section
+        className="kpi-grid"
+        aria-label="Remediation financial metrics"
+      >
+        <article className="kpi-card">
+          <span className="kpi-label">Remaining Demo Exposure</span>
 
-          <strong>
-            {formatCurrency(remainingExposure)}
+          <strong className="kpi-value">
+            {formatMoneyOrDash(remainingExposure)}
           </strong>
 
-          <small>DEMO / ILLUSTRATIVE</small>
+          <small className="kpi-note">Demo / illustrative</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Exposure after modeled reductions
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Remediation Cost</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Remediation Cost</span>
 
-          <strong>
-            {formatCurrency(remediationCost)}
+          <strong className="kpi-value">
+            {formatMoneyOrDash(remediationCost)}
           </strong>
 
-          <small>DEMO / PLACEHOLDER</small>
+          <small className="kpi-note">Demo / placeholder</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Estimated implementation cost
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Net Remediation Benefit</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Net Remediation Benefit</span>
 
-          <strong>
-            {formatCurrency(netRemediationBenefit)}
+          <strong className="kpi-value">
+            {formatMoneyOrDash(netRemediationBenefit)}
           </strong>
 
-          <small>DEMO / ILLUSTRATIVE</small>
+          <small className="kpi-note">Demo / illustrative</small>
 
-          <div className="metric-trend">
+          <div className="kpi-trend">
             Reduction minus remediation cost
           </div>
         </article>
 
-        <article className="metric-card">
-          <span>Reduction / Cost Ratio</span>
+        <article className="kpi-card">
+          <span className="kpi-label">Reduction / Cost Ratio</span>
 
-          <strong>
-            {reductionToCostRatio.toFixed(2)}x
+          <strong className="kpi-value">
+            {formatRatio(reductionToCostRatio)}
           </strong>
 
-          <small>DEMO / ILLUSTRATIVE</small>
+          <small className="kpi-note">Demo / illustrative</small>
 
-          <div className="metric-trend">
-            Expected reduction per $1 of cost
+          <div className="kpi-trend">
+            Expected reduction per unit of cost
           </div>
         </article>
       </section>
@@ -189,16 +190,18 @@ function Overview() {
         </div>
       </section>
 
-      <section className="risk-panel">
-        <div className="risk-table-wrap">
+      <section className="data-panel">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Risk</th>
-                <th>Asset</th>
-                <th>Severity</th>
-                <th>Estimated Exposure</th>
-                <th>Status</th>
+                <th scope="col">Risk</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Severity</th>
+                <th scope="col" className="money">
+                  Estimated Exposure
+                </th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
 
@@ -210,21 +213,25 @@ function Overview() {
                 .map((risk) => (
                   <tr key={risk.id}>
                     <td>
-                      <strong>{risk.risk}</strong>
+                      <div className="cell-stack">
+                        <strong>{risk.risk}</strong>
+                      </div>
                     </td>
 
                     <td>{risk.asset}</td>
 
                     <td>
                       <span
-                        className={`severity ${risk.severity.toLowerCase()}`}
+                        className={`badge badge--${slugify(risk.severity)}`}
                       >
                         {risk.severity}
                       </span>
                     </td>
 
-                    <td>
-                      {formatCurrency(risk.exposure)}
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(risk.exposure, risk.currency),
+                      )}
                     </td>
 
                     <td>{risk.status}</td>
@@ -236,7 +243,7 @@ function Overview() {
       </section>
 
       <section className="intelligence-panel">
-        <div className="intelligence-icon">
+        <div className="intelligence-icon" aria-hidden="true">
           ↗
         </div>
 
@@ -249,29 +256,29 @@ function Overview() {
             From technical findings to financial decisions.
           </h2>
 
-                    <p>
+          <p>
             Current demo modeling indicates a total exposure of{' '}
-            <strong>{formatCurrency(totalExposure)}</strong>, with{' '}
+            <strong>{formatMoneyOrDash(totalExposure)}</strong>, with{' '}
             <strong>{criticalRisks}</strong> critical risks requiring
             attention.
           </p>
 
           <p>
             The modeled remediation portfolio represents{' '}
-            <strong>{formatCurrency(remediationOpportunity)}</strong> of
+            <strong>{formatMoneyOrDash(remediationOpportunity)}</strong> of
             potential exposure reduction against an estimated implementation
             cost of{' '}
-            <strong>{formatCurrency(remediationCost)}</strong>.
+            <strong>{formatMoneyOrDash(remediationCost)}</strong>.
           </p>
 
           <p>
             That produces an illustrative net benefit of{' '}
-            <strong>{formatCurrency(netRemediationBenefit)}</strong> and a{' '}
-            <strong>{reductionToCostRatio.toFixed(2)}x</strong> reduction-to-cost
-            ratio.
+            <strong>{formatMoneyOrDash(netRemediationBenefit)}</strong> and a{' '}
+            <strong>{formatRatio(reductionToCostRatio)}</strong>{' '}
+            reduction-to-cost ratio.
           </p>
 
-          <p className="demo-disclaimer">
+          <p className="disclaimer">
             These figures are demonstration calculations only and are not
             production financial, actuarial, security, or risk assessments.
           </p>

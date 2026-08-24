@@ -1,19 +1,16 @@
 import { useMemo, useState } from 'react'
 import { demoAssets } from '../data/demoAssets'
-import {
-  calculateTotalAssetValue,
-} from '../utils/financialMetrics'
+import { calculateTotalAssetValue } from '../utils/financialMetrics'
+import { formatMoneyOrDash, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import { EmptyState } from '../components/States'
 import type {
   AssetCriticality,
   AssetStatus,
   AssetType,
 } from '../types/asset'
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+const highValueThreshold = toMoney(1000000, 'USD')
 
 function AssetRegister() {
   const [search, setSearch] = useState('')
@@ -84,12 +81,12 @@ function AssetRegister() {
     type !== 'All'
 
   return (
-    <section className="asset-register-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>Asset Register</h2>
-            <span className="demo-badge">DEMO DATA</span>
+            <span className="chip">DEMO DATA</span>
           </div>
 
           <p>
@@ -104,44 +101,47 @@ function AssetRegister() {
         >
           + Add Asset
         </button>
-      </div>
+      </header>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>TOTAL ASSETS</span>
-          <strong>{demoAssets.length}</strong>
-          <small>DEMO / PLACEHOLDER</small>
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Total Assets</span>
+          <strong className="kpi-value">{demoAssets.length}</strong>
+          <small className="kpi-note">Demo / placeholder</small>
         </article>
 
-        <article className="risk-kpi critical-kpi">
-          <span>CRITICAL ASSETS</span>
-          <strong>{criticalCount}</strong>
-          <small>Highest business priority</small>
+        <article className="kpi-card accent">
+          <span className="kpi-label">Critical Assets</span>
+          <strong className="kpi-value">{criticalCount}</strong>
+          <small className="kpi-note">Highest business priority</small>
         </article>
 
-        <article className="risk-kpi high-kpi">
-          <span>HIGH VALUE</span>
-          <strong>{highValueCount}</strong>
-          <small>Demo annual value ≥ $1M</small>
+        <article className="kpi-card">
+          <span className="kpi-label">High Value</span>
+          <strong className="kpi-value">{highValueCount}</strong>
+          <small className="kpi-note">
+            Demo annual value ≥{' '}
+            {formatMoneyOrDash(highValueThreshold, { compact: true })}
+          </small>
         </article>
 
-        <article className="risk-kpi">
-          <span>UNDER REVIEW</span>
-          <strong>{underReviewCount}</strong>
-          <small>Requires assessment</small>
+        <article className="kpi-card">
+          <span className="kpi-label">Under Review</span>
+          <strong className="kpi-value">{underReviewCount}</strong>
+          <small className="kpi-note">Requires assessment</small>
         </article>
 
-        <article className="risk-kpi exposure-kpi">
-          <span>DEMO ANNUAL VALUE</span>
-          <strong>
-            {currencyFormatter.format(totalAnnualValue)}
+        <article className="kpi-card">
+          <span className="kpi-label">Demo Annual Value</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalAnnualValue)}
           </strong>
-          <small>Fictional placeholder value</small>
+          <small className="kpi-note">Fictional placeholder value</small>
         </article>
       </div>
 
-      <div className="demo-notice">
-        <span className="demo-notice-icon">i</span>
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">i</span>
 
         <div>
           <strong>Demonstration environment</strong>
@@ -155,9 +155,9 @@ function AssetRegister() {
         </div>
       </div>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Asset filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -230,7 +230,7 @@ function AssetRegister() {
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -239,8 +239,8 @@ function AssetRegister() {
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>Asset Inventory</strong>
 
@@ -250,22 +250,24 @@ function AssetRegister() {
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Asset</th>
-                <th>Type</th>
-                <th>Business Unit</th>
-                <th>Criticality</th>
-                <th>Annual Value</th>
-                <th>Status</th>
-                <th>Owner</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Type</th>
+                <th scope="col">Business Unit</th>
+                <th scope="col">Criticality</th>
+                <th scope="col" className="money">
+                  Annual Value
+                </th>
+                <th scope="col">Status</th>
+                <th scope="col">Owner</th>
               </tr>
             </thead>
 
@@ -273,7 +275,7 @@ function AssetRegister() {
               {filteredAssets.map((asset) => (
                 <tr key={asset.id}>
                   <td>
-                    <div className="risk-name">
+                    <div className="cell-stack">
                       <strong>{asset.name}</strong>
                       <span>{asset.id}</span>
                     </div>
@@ -285,23 +287,21 @@ function AssetRegister() {
 
                   <td>
                     <span
-                      className={`risk-severity ${asset.criticality.toLowerCase()}`}
+                      className={`badge badge--${slugify(asset.criticality)}`}
                     >
                       {asset.criticality}
                     </span>
                   </td>
 
-                  <td className="financial-value">
-                    {currencyFormatter.format(
-                      asset.annualValue,
+                  <td className="money">
+                    {formatMoneyOrDash(
+                      toMoney(asset.annualValue, asset.currency),
                     )}
                   </td>
 
                   <td>
                     <span
-                      className={`risk-status ${asset.status
-                        .toLowerCase()
-                        .replaceAll(' ', '-')}`}
+                      className={`badge badge--${slugify(asset.status)}`}
                     >
                       {asset.status}
                     </span>
@@ -314,24 +314,19 @@ function AssetRegister() {
               {filteredAssets.length === 0 && (
                 <tr>
                   <td colSpan={7}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No assets match the current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search or filter
-                        selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No assets match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}

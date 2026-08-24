@@ -1,3 +1,5 @@
+import type { CurrencyCode } from './money'
+
 export type ScenarioSeverity = 'Critical' | 'High' | 'Medium' | 'Low'
 
 export type ScenarioStatus =
@@ -26,7 +28,14 @@ export interface Scenario {
 
   severity: ScenarioSeverity
   probability: string
+
+  /*
+   * Currency of estimatedImpact. Scenario modeling may be performed in a
+   * group/base currency that differs from the affected asset's currency.
+   */
+  currency: CurrencyCode
   estimatedImpact: number
+
   businessImpact: string
   status: ScenarioStatus
   owner: string

@@ -1,20 +1,15 @@
 import { useMemo, useState } from 'react'
 import { demoAssets } from '../data/demoAssets'
 import { demoRisks } from '../data/demoRisks'
-import {
-  calculateTotalExposure,
-} from '../utils/financialMetrics'
+import { calculateTotalExposure } from '../utils/financialMetrics'
+import { formatMoneyOrDash, slugify } from '../utils/format'
+import { toMoney } from '../types/money'
+import { EmptyState } from '../components/States'
 import type {
   RiskCategory,
   RiskSeverity,
   RiskStatus,
 } from '../types/risk'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function RiskRegister() {
   const [search, setSearch] = useState('')
@@ -112,15 +107,13 @@ function RiskRegister() {
     category !== 'All'
 
   return (
-    <section className="risk-register-page">
-      <div className="module-heading">
-        <div>
-          <div className="module-title-row">
+    <section className="page">
+      <header className="page-intro">
+        <div className="page-intro-text">
+          <div className="page-title-row">
             <h2>Risk Register</h2>
 
-            <span className="demo-badge">
-              DEMO DATA
-            </span>
+            <span className="chip">DEMO DATA</span>
           </div>
 
           <p>
@@ -135,48 +128,44 @@ function RiskRegister() {
         >
           + Add Risk
         </button>
-      </div>
+      </header>
 
-      <div className="risk-kpis">
-        <article className="risk-kpi">
-          <span>ACTIVE RISKS</span>
-          <strong>{demoRisks.length}</strong>
-          <small>DEMO / PLACEHOLDER</small>
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <span className="kpi-label">Active Risks</span>
+          <strong className="kpi-value">{demoRisks.length}</strong>
+          <small className="kpi-note">Demo / placeholder</small>
         </article>
 
-        <article className="risk-kpi critical-kpi">
-          <span>CRITICAL</span>
-          <strong>{criticalCount}</strong>
-          <small>Requires attention</small>
+        <article className="kpi-card accent">
+          <span className="kpi-label">Critical</span>
+          <strong className="kpi-value">{criticalCount}</strong>
+          <small className="kpi-note">Requires attention</small>
         </article>
 
-        <article className="risk-kpi high-kpi">
-          <span>HIGH</span>
-          <strong>{highCount}</strong>
-          <small>Priority risks</small>
+        <article className="kpi-card">
+          <span className="kpi-label">High</span>
+          <strong className="kpi-value">{highCount}</strong>
+          <small className="kpi-note">Priority risks</small>
         </article>
 
-        <article className="risk-kpi">
-          <span>MEDIUM</span>
-          <strong>{mediumCount}</strong>
-          <small>Monitor and manage</small>
+        <article className="kpi-card">
+          <span className="kpi-label">Medium</span>
+          <strong className="kpi-value">{mediumCount}</strong>
+          <small className="kpi-note">Monitor and manage</small>
         </article>
 
-        <article className="risk-kpi exposure-kpi">
-          <span>DEMO EXPOSURE</span>
-
-          <strong>
-            {currencyFormatter.format(totalExposure)}
+        <article className="kpi-card">
+          <span className="kpi-label">Demo Exposure</span>
+          <strong className="kpi-value">
+            {formatMoneyOrDash(totalExposure)}
           </strong>
-
-          <small>
-            Fictional placeholder value
-          </small>
+          <small className="kpi-note">Fictional placeholder value</small>
         </article>
       </div>
 
-      <div className="demo-notice">
-        <span className="demo-notice-icon">
+      <div className="notice">
+        <span className="notice-icon" aria-hidden="true">
           i
         </span>
 
@@ -195,9 +184,9 @@ function RiskRegister() {
         </div>
       </div>
 
-      <div className="risk-toolbar">
-        <label className="risk-search">
-          <span>⌕</span>
+      <div className="toolbar" role="group" aria-label="Risk filters">
+        <label className="search-field">
+          <span aria-hidden="true">⌕</span>
 
           <input
             type="search"
@@ -316,7 +305,7 @@ function RiskRegister() {
 
         {hasFilters && (
           <button
-            className="clear-filters"
+            className="secondary-button"
             type="button"
             onClick={clearFilters}
           >
@@ -325,8 +314,8 @@ function RiskRegister() {
         )}
       </div>
 
-      <div className="risk-register-table">
-        <div className="table-header">
+      <div className="data-panel">
+        <div className="data-table-header">
           <div>
             <strong>
               Risk Inventory
@@ -338,25 +327,25 @@ function RiskRegister() {
             </span>
           </div>
 
-          <span className="table-demo-label">
+          <span className="chip chip--muted">
             PLACEHOLDER DATA
           </span>
         </div>
 
-        <div className="risk-table-scroll">
+        <div className="data-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Risk</th>
-                <th>Asset</th>
-                <th>Category</th>
-                <th>Severity</th>
-                <th>Likelihood</th>
-                <th>
+                <th scope="col">Risk</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Category</th>
+                <th scope="col">Severity</th>
+                <th scope="col">Likelihood</th>
+                <th scope="col" className="money">
                   Financial Exposure
                 </th>
-                <th>Status</th>
-                <th>Owner</th>
+                <th scope="col">Status</th>
+                <th scope="col">Owner</th>
               </tr>
             </thead>
 
@@ -368,7 +357,7 @@ function RiskRegister() {
                 return (
                   <tr key={risk.id}>
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {risk.risk}
                         </strong>
@@ -380,7 +369,7 @@ function RiskRegister() {
                     </td>
 
                     <td>
-                      <div className="risk-name">
+                      <div className="cell-stack">
                         <strong>
                           {linkedAsset?.name ??
                             risk.asset}
@@ -398,7 +387,7 @@ function RiskRegister() {
 
                     <td>
                       <span
-                        className={`risk-severity ${risk.severity.toLowerCase()}`}
+                        className={`badge badge--${slugify(risk.severity)}`}
                       >
                         {risk.severity}
                       </span>
@@ -408,17 +397,15 @@ function RiskRegister() {
                       {risk.likelihood}
                     </td>
 
-                    <td className="financial-value">
-                      {currencyFormatter.format(
-                        risk.exposure,
+                    <td className="money">
+                      {formatMoneyOrDash(
+                        toMoney(risk.exposure, risk.currency),
                       )}
                     </td>
 
                     <td>
                       <span
-                        className={`risk-status ${risk.status
-                          .toLowerCase()
-                          .replace(' ', '-')}`}
+                        className={`badge badge--${slugify(risk.status)}`}
                       >
                         {risk.status}
                       </span>
@@ -434,25 +421,19 @@ function RiskRegister() {
               {filteredRisks.length === 0 && (
                 <tr>
                   <td colSpan={8}>
-                    <div className="risk-empty-state">
-                      <strong>
-                        No risks match the
-                        current filters.
-                      </strong>
-
-                      <span>
-                        Try changing the search
-                        or filter selections.
-                      </span>
-
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={clearFilters}
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <EmptyState
+                      title="No risks match the current filters."
+                      message="Try changing the search or filter selections."
+                      action={
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={clearFilters}
+                        >
+                          Clear filters
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               )}

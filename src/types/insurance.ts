@@ -1,3 +1,5 @@
+import type { CurrencyCode } from './money'
+
 export type InsuranceStatus =
   | 'Active'
   | 'Expiring Soon'
@@ -16,6 +18,12 @@ export interface InsurancePolicy {
   policyNumber: string
   provider: string
   coverageType: InsuranceCoverageType
+
+  /*
+   * Policy currency, set by the insurer contract. Coverage limit,
+   * deductible, and premium are always denominated in this currency.
+   */
+  currency: CurrencyCode
   coverageLimit: number
   deductible: number
   premium: number
