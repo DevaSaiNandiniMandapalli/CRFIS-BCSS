@@ -38,6 +38,11 @@ const RELATION_SELECT = {
 function buildWhere(filters: AuditFindingFilters): Prisma.AuditFindingWhereInput {
   const where: Prisma.AuditFindingWhereInput = {}
 
+  // Findings of an archived Audit are hidden from normal reads - the
+  // relationship stays intact. (AuditFinding itself has no archived flag;
+  // removal is physical.)
+  where.audit = { is: { archived: false } }
+
   const equality = {
     severity: filters.severity,
     status: filters.status,
@@ -94,10 +99,48 @@ export async function listAuditFindings(
 export async function getAuditFindingById(
   id: string,
 ): Promise<AuditFindingWithRelations | null> {
-  const finding = await prisma.auditFinding.findUnique({
-    where: { id },
+  const finding = await prisma.auditFinding.findFirst({
+    where: { id, audit: { is: { archived: false } } },
     include: RELATION_SELECT,
   })
 
   return (finding as AuditFindingWithRelations | null) ?? null
+}
+
+/* =====================
+   Write operations (Phase 4). AuditFinding has no archived column, so
+   DELETE removes the row physically - the audit's computed findings count
+   reflects the removal immediately.
+===================== */
+
+export async function createAuditFinding(
+  data: Prisma.AuditFindingUncheckedCreateInput,
+): Promise<AuditFinding> {
+  return prisma.auditFinding.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the record does not exist. */
+export async function updateAuditFinding(
+  id: string,
+  data: Prisma.AuditFindingUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.auditFinding.updateMany({
+    where: { id },
+    data,
+  })
+
+  return result.count
+}
+
+/** Physically deletes the finding. Returns false when not found. */
+export async function deleteAuditFinding(id: string): Promise<boolean> {
+  const result = await prisma.auditFinding.deleteMany({ where: { id } })
+
+  return result.count > 0
+}
+
+export async function auditFindingIdExists(id: string): Promise<boolean> {
+  const found = await prisma.auditFinding.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
 }

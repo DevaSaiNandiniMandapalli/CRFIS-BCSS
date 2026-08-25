@@ -30,6 +30,9 @@ export interface AuditStats {
   highCriticalFindings: number
 }
 
+// The findings number is ALWAYS the relation count via _count - never a
+// stored scalar. (AuditFinding has no archived flag; the count tracks the
+// table directly.)
 const FINDINGS_COUNT = { _count: { select: { findings: true } } } as const
 
 function buildWhere(filters: AuditFilters): Prisma.AuditWhereInput {
@@ -91,6 +94,45 @@ export async function getAuditById(id: string): Promise<AuditWithCount | null> {
   })
 
   return (audit as AuditWithCount | null) ?? null
+}
+
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag.
+===================== */
+
+export async function createAudit(data: Prisma.AuditUncheckedCreateInput): Promise<Audit> {
+  return prisma.audit.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the audit does not exist. */
+export async function updateAudit(
+  id: string,
+  data: Prisma.AuditUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.audit.updateMany({
+    where: { id, archived: false },
+    data,
+  })
+
+  return result.count
+}
+
+/** Soft-deletes by flagging archived. Returns false when not found. */
+export async function archiveAudit(id: string): Promise<boolean> {
+  const result = await prisma.audit.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function auditIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.audit.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
 }
 
 export async function getAuditStats(filters: AuditFilters): Promise<AuditStats> {
