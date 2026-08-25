@@ -24,10 +24,11 @@ export function sendSuccess<T>(
   reply: FastifyReply,
   data: T,
   meta?: PaginationMeta & Record<string, unknown>,
+  status = 200,
 ): FastifyReply {
   const body: ApiSuccessBody<T> = meta === undefined ? { data } : { data, meta }
 
-  return reply.code(200).send(body)
+  return reply.code(status).send(body)
 }
 
 export function apiErrorBody(code: string, message: string, details?: unknown): { error: ApiErrorBody } {

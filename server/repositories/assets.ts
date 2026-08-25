@@ -93,6 +93,47 @@ export async function getAssetById(id: string): Promise<Asset | null> {
   return prisma.asset.findFirst({ where: { id, archived: false } })
 }
 
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag.
+===================== */
+
+export async function createAsset(
+  data: Prisma.AssetUncheckedCreateInput,
+): Promise<Asset> {
+  return prisma.asset.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the asset does not exist. */
+export async function updateAsset(
+  id: string,
+  data: Prisma.AssetUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.asset.updateMany({
+    where: { id, archived: false },
+    data,
+  })
+
+  return result.count
+}
+
+/** Soft-deletes by flagging archived. Returns false when not found. */
+export async function archiveAsset(id: string): Promise<boolean> {
+  const result = await prisma.asset.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function assetIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.asset.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
+}
+
 /**
  * Filter-scoped aggregate statistics for the KPI strip. Currency sums are
  * grouped BY currency so mixed-currency datasets never combine silently.

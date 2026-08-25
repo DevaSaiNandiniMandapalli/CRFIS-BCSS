@@ -3,6 +3,10 @@ import {
   getAssetById as findAssetById,
   getAssetStats,
   listAssets as fetchAssets,
+  createAsset as repoCreateAsset,
+  updateAsset as repoUpdateAsset,
+  archiveAsset as repoArchiveAsset,
+  assetIdExists,
   type AssetStats,
 } from '../repositories/assets.js'
 import { mapAsset, type MappedAsset } from '../utils/mappers.js'
@@ -73,4 +77,74 @@ export async function getAssetById(id: string): Promise<MappedAsset> {
   }
 
   return mapAsset(asset)
+}
+
+/* =====================
+   Write operations (Phase 4)
+===================== */
+
+export interface AssetCreateInput {
+  id: string
+  name: string
+  type: string
+  businessUnit: string
+  criticality: string
+  currency: string
+  annualValue: string
+  status: string
+  owner: string
+}
+
+export async function createAsset(
+  input: AssetCreateInput,
+  actorId: string,
+): Promise<MappedAsset> {
+  if (await assetIdExists(input.id)) {
+    throw new HttpError(409, 'ID_ALREADY_EXISTS', `Asset "${input.id}" already exists.`)
+  }
+
+  const created = await repoCreateAsset({
+    ...input,
+    lastUpdated: new Date(),
+  })
+
+  void actorId
+  return mapAsset(created)
+}
+
+export interface AssetUpdateInput {
+  name?: string
+  type?: string
+  businessUnit?: string
+  criticality?: string
+  currency?: string
+  annualValue?: string
+  status?: string
+  owner?: string
+}
+
+export async function updateAsset(
+  id: string,
+  input: AssetUpdateInput,
+): Promise<MappedAsset> {
+  const updated = await repoUpdateAsset(id, {
+    ...input,
+    lastUpdated: new Date(),
+  })
+
+  if (updated === 0) {
+    throw new HttpError(404, 'ASSET_NOT_FOUND', `Asset "${id}" was not found.`)
+  }
+
+  return getAssetById(id)
+}
+
+export async function archiveAsset(id: string): Promise<{ id: string; archived: true }> {
+  const archived = await repoArchiveAsset(id)
+
+  if (!archived) {
+    throw new HttpError(404, 'ASSET_NOT_FOUND', `Asset "${id}" was not found.`)
+  }
+
+  return { id, archived: true }
 }
