@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
-import { toMoney } from '../types/money'
+import { SUPPORTED_CURRENCIES, toMoney } from '../types/money'
 import type {
+  AssetListResponse,
   RiskListResponse,
   RiskDto,
 } from '../types/api'
@@ -12,6 +13,9 @@ import type {
   RiskStatus,
 } from '../types/risk'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { FormModal, type FormField } from '../components/FormModal'
+import { useFormSubmit } from '../hooks/useFormSubmit'
+import { apiRequest } from '../api/client'
 
 const PAGE_SIZE = 20
 
@@ -107,6 +111,127 @@ function RiskRegister() {
 
   const showTableContent = !loading && !error
 
+  /* =====================
+     Phase 4 write actions (create / edit / archive)
+  ===================== */
+  // Parent picker options - visible assets only.
+  const assetsResource = useApiResource<AssetListResponse>(
+    '/api/assets?page=1&pageSize=100',
+  )
+  const assetOptions = (assetsResource.data?.data ?? []).map((asset) => ({
+    value: asset.id,
+    label: `${asset.id} — ${asset.name}`,
+  }))
+
+  function riskFields(create: boolean): FormField[] {
+    const fields: FormField[] = []
+
+    if (create) {
+      fields.push({
+        name: 'id', label: 'Risk ID', type: 'text', required: true,
+        placeholder: 'e.g. RSK-IDENT-01',
+        help: 'Unique forever, including after archive.',
+      })
+    }
+
+    fields.push(
+      { name: 'risk', label: 'Risk Description', type: 'textarea', required: true },
+      {
+        name: 'assetId', label: 'Related Asset', type: 'select', required: true,
+        options: assetOptions,
+        help: 'Archived or unknown assets are rejected.',
+      },
+      {
+        name: 'category', label: 'Category', type: 'select', required: true,
+        options: ['Ransomware', 'Identity', 'Data Security', 'Cloud Security', 'Third Party', 'Insider Risk']
+          .map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'severity', label: 'Severity', type: 'select', required: true,
+        options: ['Critical', 'High', 'Medium', 'Low'].map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'likelihood', label: 'Likelihood', type: 'select', required: true,
+        options: ['Very High', 'High', 'Medium', 'Low'].map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'currency', label: 'Currency', type: 'select', required: true,
+        options: SUPPORTED_CURRENCIES.map((code) => ({ value: code, label: code })),
+        help: 'Currency of the exposure amount.',
+      },
+      {
+        name: 'exposure', label: 'Exposure', type: 'money', required: true,
+        placeholder: '2500000.00',
+        help: 'Decimal string with up to two fraction digits.',
+      },
+      {
+        name: 'status', label: 'Status', type: 'select', required: true,
+        options: ['Open', 'Under Review', 'Mitigated', 'Accepted'].map((value) => ({ value, label: value })),
+      },
+      { name: 'owner', label: 'Owner', type: 'text', required: true },
+    )
+
+    return fields
+  }
+
+  type ModalState =
+    | { mode: 'closed' }
+    | { mode: 'create' }
+    | { mode: 'edit'; record: RiskDto }
+
+  const [modal, setModal] = useState<ModalState>({ mode: 'closed' })
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const { run } = useFormSubmit()
+
+  function errorText(caught: unknown): string {
+    return caught instanceof Error ? caught.message : 'Request failed.'
+  }
+
+  async function handleRiskSubmit(values: Record<string, string | string[]>) {
+    const payload = {
+      id: String(values.id),
+      risk: String(values.risk),
+      assetId: String(values.assetId),
+      category: String(values.category),
+      severity: String(values.severity),
+      likelihood: String(values.likelihood),
+      currency: String(values.currency),
+      exposure: String(values.exposure).trim(),
+      status: String(values.status),
+      owner: String(values.owner),
+    }
+
+    const done = await run(async () => {
+      if (modal.mode === 'edit') {
+        await apiRequest('PATCH', `/api/risks/${modal.record.id}`, payload)
+        setBanner({ kind: 'success', text: `Risk "${modal.record.id}" updated.` })
+      } else {
+        await apiRequest('POST', '/api/risks', payload)
+        setBanner({ kind: 'success', text: `Risk "${payload.id}" created.` })
+      }
+
+      reload()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function archiveRisk(risk: RiskDto) {
+    if (!window.confirm(`Archive risk "${risk.id}"? It will leave every read view.`)) {
+      return
+    }
+
+    try {
+      await apiRequest('DELETE', `/api/risks/${risk.id}`)
+      setBanner({ kind: 'success', text: `Risk "${risk.id}" archived.` })
+      reload()
+    } catch (caught) {
+      setBanner({ kind: 'error', text: errorText(caught) })
+    }
+  }
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -126,10 +251,47 @@ function RiskRegister() {
         <button
           className="primary-button"
           type="button"
+          onClick={() => {
+            setBanner(null)
+            setModal({ mode: 'create' })
+          }}
         >
           + Add Risk
         </button>
       </header>
+
+      {banner && (
+        <div className={`action-banner ${banner.kind}`} role="status">
+          <span>{banner.text}</span>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {modal.mode !== 'closed' && (
+        <FormModal
+          title={modal.mode === 'create' ? 'Add Risk' : `Edit Risk ${modal.record.id}`}
+          fields={
+            modal.mode === 'create'
+              ? riskFields(true)
+              : riskFields(false).map((field) => ({
+                  ...field,
+                  initial:
+                    (modal.record as unknown as Record<string, string>)[field.name] ?? '',
+                }))
+          }
+          submitLabel={modal.mode === 'create' ? 'Create Risk' : 'Save Changes'}
+          onSubmit={handleRiskSubmit}
+          onClose={() => setModal({ mode: 'closed' })}
+          notice="Writes require an API access token configured in Settings. Exposure is a decimal string with an explicit currency."
+        />
+      )}
 
       <div className="kpi-grid">
         <article className="kpi-card">
@@ -352,13 +514,14 @@ function RiskRegister() {
                 </th>
                 <th scope="col">Status</th>
                 <th scope="col">Owner</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <LoadingState title="Loading risks..." />
                   </td>
                 </tr>
@@ -366,7 +529,7 @@ function RiskRegister() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <ErrorState
                       title="Risks could not be loaded."
                       message={error}
@@ -386,7 +549,7 @@ function RiskRegister() {
 
               {showTableContent && risks.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <EmptyState
                       title={
                         hasFilters
@@ -473,6 +636,27 @@ function RiskRegister() {
 
                     <td>
                       {risk.owner}
+                    </td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBanner(null)
+                            setModal({ mode: 'edit', record: risk })
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void archiveRisk(risk)}
+                        >
+                          Archive
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatDate, formatMoneyOrDash, slugify } from '../utils/format'
-import { toMoney } from '../types/money'
+import { SUPPORTED_CURRENCIES, toMoney } from '../types/money'
 import type {
+  AssetListResponse,
   InsuranceListResponse,
   InsurancePolicyDto,
 } from '../types/api'
@@ -11,6 +12,9 @@ import type {
   InsuranceStatus,
 } from '../types/insurance'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { FormModal, type FormField } from '../components/FormModal'
+import { useFormSubmit } from '../hooks/useFormSubmit'
+import { apiRequest } from '../api/client'
 
 const PAGE_SIZE = 20
 
@@ -100,6 +104,128 @@ function InsuranceRegister() {
 
   const showTableContent = !loading && !error
 
+  /* =====================
+     Phase 4 write actions (create / edit / archive)
+  ===================== */
+  // Covered-asset picker - visible assets only.
+  const assetsResource = useApiResource<AssetListResponse>('/api/assets?page=1&pageSize=100')
+  const assetOptions = (assetsResource.data?.data ?? []).map((asset) => ({
+    value: asset.id,
+    label: `${asset.id} — ${asset.name}`,
+  }))
+
+  function policyFields(create: boolean): FormField[] {
+    const fields: FormField[] = []
+
+    if (create) {
+      fields.push({
+        name: 'id', label: 'Policy ID', type: 'text', required: true,
+        placeholder: 'e.g. POL-CYBER-01',
+        help: 'Unique forever, including after archive.',
+      })
+    }
+
+    fields.push(
+      { name: 'policyNumber', label: 'Policy Number', type: 'text', required: true },
+      { name: 'provider', label: 'Provider', type: 'text', required: true },
+      {
+        name: 'coverageType', label: 'Coverage Type', type: 'select', required: true,
+        options: ['Cyber Liability', 'Business Interruption', 'Data Breach', 'Ransomware', 'Technology Errors & Omissions']
+          .map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'currency', label: 'Currency', type: 'select', required: true,
+        options: SUPPORTED_CURRENCIES.map((code) => ({ value: code, label: code })),
+        help: 'All three money fields share this currency.',
+      },
+      {
+        name: 'coverageLimit', label: 'Coverage Limit', type: 'money', required: true,
+        placeholder: '10000000.00',
+      },
+      {
+        name: 'deductible', label: 'Deductible', type: 'money', required: true,
+        placeholder: '500000.00',
+      },
+      {
+        name: 'premium', label: 'Premium', type: 'money', required: true,
+        placeholder: '750000.00',
+      },
+      { name: 'expirationDate', label: 'Expiration Date', type: 'date', required: true },
+      {
+        name: 'status', label: 'Status', type: 'select', required: true,
+        options: ['Active', 'Expiring Soon', 'Under Review', 'Pending'].map((value) => ({ value, label: value })),
+      },
+      { name: 'notes', label: 'Notes', type: 'textarea' },
+      {
+        name: 'assetIds', label: 'Covered Assets', type: 'multiselect',
+        options: assetOptions,
+        help: 'Every selected asset must exist; join rows are updated transactionally.',
+      },
+    )
+
+    return fields
+  }
+
+  type ModalState =
+    | { mode: 'closed' }
+    | { mode: 'create' }
+    | { mode: 'edit'; record: InsurancePolicyDto }
+
+  const [modal, setModal] = useState<ModalState>({ mode: 'closed' })
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const { run } = useFormSubmit()
+
+  function errorText(caught: unknown): string {
+    return caught instanceof Error ? caught.message : 'Request failed.'
+  }
+
+  async function handlePolicySubmit(values: Record<string, string | string[]>) {
+    const payload = {
+      id: String(values.id),
+      policyNumber: String(values.policyNumber),
+      provider: String(values.provider),
+      coverageType: String(values.coverageType),
+      currency: String(values.currency),
+      coverageLimit: String(values.coverageLimit).trim(),
+      deductible: String(values.deductible).trim(),
+      premium: String(values.premium).trim(),
+      expirationDate: String(values.expirationDate),
+      status: String(values.status),
+      notes: values.notes === undefined || String(values.notes).trim() === '' ? undefined : String(values.notes),
+      assetIds: Array.isArray(values.assetIds) ? values.assetIds : [],
+    }
+
+    const done = await run(async () => {
+      if (modal.mode === 'edit') {
+        await apiRequest('PATCH', `/api/insurance/${modal.record.id}`, payload)
+        setBanner({ kind: 'success', text: `Policy "${modal.record.id}" updated.` })
+      } else {
+        await apiRequest('POST', '/api/insurance', payload)
+        setBanner({ kind: 'success', text: `Policy "${payload.id}" created.` })
+      }
+
+      reload()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function archivePolicy(policy: InsurancePolicyDto) {
+    if (!window.confirm(`Archive policy "${policy.id}"? It will leave every read view.`)) {
+      return
+    }
+
+    try {
+      await apiRequest('DELETE', `/api/insurance/${policy.id}`)
+      setBanner({ kind: 'success', text: `Policy "${policy.id}" archived.` })
+      reload()
+    } catch (caught) {
+      setBanner({ kind: 'error', text: errorText(caught) })
+    }
+  }
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -115,10 +241,56 @@ function InsuranceRegister() {
           </p>
         </div>
 
-        <button className="primary-button" type="button">
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => {
+            setBanner(null)
+            setModal({ mode: 'create' })
+          }}
+        >
           + Add Policy
         </button>
       </header>
+
+      {banner && (
+        <div className={`action-banner ${banner.kind}`} role="status">
+          <span>{banner.text}</span>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {modal.mode !== 'closed' && (
+        <FormModal
+          title={modal.mode === 'create' ? 'Add Insurance Policy' : `Edit ${modal.record.id}`}
+          fields={
+            modal.mode === 'create'
+              ? policyFields(true)
+              : policyFields(false).map((field) => ({
+                  ...field,
+                  initial:
+                    field.type === 'multiselect'
+                      ? modal.record.assetIds
+                      : field.type === 'date'
+                        ? (modal.record as unknown as Record<string, string>)[field.name]?.slice(0, 10) ?? ''
+                        : (modal.record as unknown as Record<string, string | null>)[field.name] == null
+                          ? ''
+                          : String((modal.record as unknown as Record<string, string | null>)[field.name]),
+                }))
+          }
+          submitLabel={modal.mode === 'create' ? 'Create Policy' : 'Save Changes'}
+          onSubmit={handlePolicySubmit}
+          onClose={() => setModal({ mode: 'closed' })}
+          notice="Writes require an API access token configured in Settings. Coverage amounts are decimal strings sharing the policy currency."
+        />
+      )}
 
       <div className="kpi-grid">
         <article className="kpi-card">
@@ -269,13 +441,14 @@ function InsuranceRegister() {
                 <th scope="col">Expiration</th>
                 <th scope="col">Status</th>
                 <th scope="col">Covered Assets</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <LoadingState title="Loading policies..." />
                   </td>
                 </tr>
@@ -283,7 +456,7 @@ function InsuranceRegister() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <ErrorState
                       title="Insurance policies could not be loaded."
                       message={error}
@@ -303,7 +476,7 @@ function InsuranceRegister() {
 
               {showTableContent && policies.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <EmptyState
                       title={
                         hasFilters
@@ -379,6 +552,27 @@ function InsuranceRegister() {
                             .join(', ') || 'None'}
                         </span>
                       </div>
+                    </td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBanner(null)
+                            setModal({ mode: 'edit', record: policy })
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void archivePolicy(policy)}
+                        >
+                          Archive
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}

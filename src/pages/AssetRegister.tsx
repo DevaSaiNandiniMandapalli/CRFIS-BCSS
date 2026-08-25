@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
-import { toMoney } from '../types/money'
+import { SUPPORTED_CURRENCIES, toMoney } from '../types/money'
 import type {
   AssetListResponse,
   AssetDto,
@@ -12,6 +12,9 @@ import type {
   AssetType,
 } from '../types/asset'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { FormModal, type FormField } from '../components/FormModal'
+import { useFormSubmit } from '../hooks/useFormSubmit'
+import { apiRequest } from '../api/client'
 
 const PAGE_SIZE = 20
 
@@ -107,6 +110,130 @@ function AssetRegister() {
 
   const showTableContent = !loading && !error
 
+  /* =====================
+     Phase 4 write actions (create / edit / archive)
+  ===================== */
+  const currencyOptions = SUPPORTED_CURRENCIES.map((code) => ({ value: code, label: code }))
+
+  function assetFields(create: boolean): FormField[] {
+    const fields: FormField[] = []
+
+    if (create) {
+      fields.push({
+        name: 'id',
+        label: 'Asset ID',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g. AST-DATA-01',
+        help: 'Letters, digits, dots, underscores and hyphens. Unique forever.',
+      })
+    }
+
+    fields.push(
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        required: true,
+        options: ['Infrastructure', 'Application', 'Data', 'Cloud', 'Endpoint', 'Third Party']
+          .map((value) => ({ value, label: value })),
+      },
+      { name: 'businessUnit', label: 'Business Unit', type: 'text', required: true },
+      {
+        name: 'criticality',
+        label: 'Criticality',
+        type: 'select',
+        required: true,
+        options: ['Critical', 'High', 'Medium', 'Low'].map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'currency',
+        label: 'Currency',
+        type: 'select',
+        required: true,
+        options: currencyOptions,
+        help: 'Explicit ISO-4217 code - never assumed.',
+      },
+      {
+        name: 'annualValue',
+        label: 'Annual Value',
+        type: 'money',
+        required: true,
+        placeholder: '1250000.50',
+        help: 'Decimal string with up to two fraction digits.',
+      },
+      {
+        name: 'status',
+        label: 'Status',
+        type: 'select',
+        required: true,
+        options: ['At Risk', 'Monitored', 'Healthy', 'Under Review']
+          .map((value) => ({ value, label: value })),
+      },
+      { name: 'owner', label: 'Owner', type: 'text', required: true },
+    )
+
+    return fields
+  }
+
+  type ModalState =
+    | { mode: 'closed' }
+    | { mode: 'create' }
+    | { mode: 'edit'; record: AssetDto }
+
+  const [modal, setModal] = useState<ModalState>({ mode: 'closed' })
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const { run } = useFormSubmit()
+
+  function errorText(caught: unknown): string {
+    return caught instanceof Error ? caught.message : 'Request failed.'
+  }
+
+  async function handleAssetSubmit(values: Record<string, string | string[]>) {
+    const payload = {
+      id: String(values.id),
+      name: String(values.name),
+      type: String(values.type),
+      businessUnit: String(values.businessUnit),
+      criticality: String(values.criticality),
+      currency: String(values.currency),
+      annualValue: String(values.annualValue).trim(),
+      status: String(values.status),
+      owner: String(values.owner),
+    }
+
+    const done = await run(async () => {
+      if (modal.mode === 'edit') {
+        await apiRequest('PATCH', `/api/assets/${modal.record.id}`, payload)
+        setBanner({ kind: 'success', text: `Asset "${modal.record.id}" updated.` })
+      } else {
+        await apiRequest('POST', '/api/assets', payload)
+        setBanner({ kind: 'success', text: `Asset "${payload.id}" created.` })
+      }
+
+      reload()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function archiveAsset(asset: AssetDto) {
+    if (!window.confirm(`Archive asset "${asset.id}"? It will disappear from all read views.`)) {
+      return
+    }
+
+    try {
+      await apiRequest('DELETE', `/api/assets/${asset.id}`)
+      setBanner({ kind: 'success', text: `Asset "${asset.id}" archived.` })
+      reload()
+    } catch (caught) {
+      setBanner({ kind: 'error', text: errorText(caught) })
+    }
+  }
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -125,10 +252,47 @@ function AssetRegister() {
         <button
           className="primary-button"
           type="button"
+          onClick={() => {
+            setBanner(null)
+            setModal({ mode: 'create' })
+          }}
         >
           + Add Asset
         </button>
       </header>
+
+      {banner && (
+        <div className={`action-banner ${banner.kind}`} role="status">
+          <span>{banner.text}</span>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {modal.mode !== 'closed' && (
+        <FormModal
+          title={modal.mode === 'create' ? 'Add Asset' : `Edit Asset ${modal.record.id}`}
+          fields={
+            modal.mode === 'create'
+              ? assetFields(true)
+              : assetFields(false).map((field) => ({
+                  ...field,
+                  initial:
+                    (modal.record as unknown as Record<string, string>)[field.name] ?? '',
+                }))
+          }
+          submitLabel={modal.mode === 'create' ? 'Create Asset' : 'Save Changes'}
+          onSubmit={handleAssetSubmit}
+          onClose={() => setModal({ mode: 'closed' })}
+          notice="Writes require an API access token configured in Settings. Money is stored exactly as typed - decimal strings with an explicit currency."
+        />
+      )}
 
       <div className="kpi-grid">
         <article className="kpi-card">
@@ -175,9 +339,9 @@ function AssetRegister() {
           <strong>Connected to the CRFIS database</strong>
 
           <p>
-            Assets are served live from the CRFIS database through the
-            read-only API. Monetary amounts keep their record currency;
-            no conversion is applied.
+            Assets are served live from the CRFIS database. Create, edit and
+            archive actions require an API access token (Settings). Monetary
+            amounts keep their record currency; no conversion is applied.
           </p>
         </div>
       </div>
@@ -296,13 +460,14 @@ function AssetRegister() {
                 </th>
                 <th scope="col">Status</th>
                 <th scope="col">Owner</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <LoadingState title="Loading assets..." />
                   </td>
                 </tr>
@@ -310,7 +475,7 @@ function AssetRegister() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <ErrorState
                       title="Assets could not be loaded."
                       message={error}
@@ -330,7 +495,7 @@ function AssetRegister() {
 
               {showTableContent && assets.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <EmptyState
                       title={
                         hasFilters
@@ -395,6 +560,27 @@ function AssetRegister() {
                     </td>
 
                     <td>{asset.owner}</td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBanner(null)
+                            setModal({ mode: 'edit', record: asset })
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void archiveAsset(asset)}
+                        >
+                          Archive
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 ))}
             </tbody>

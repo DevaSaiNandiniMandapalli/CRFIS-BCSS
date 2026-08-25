@@ -3,10 +3,14 @@ import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatDate, formatPercent, slugify } from '../utils/format'
 import type {
   AuditDto,
+  AuditFindingDto,
   AuditFindingListResponse,
   AuditListResponse,
 } from '../types/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { FormModal, type FormField } from '../components/FormModal'
+import { useFormSubmit } from '../hooks/useFormSubmit'
+import { apiRequest } from '../api/client'
 
 const PAGE_SIZE = 20
 const FINDINGS_PAGE_SIZE = 25
@@ -112,6 +116,127 @@ function Audit() {
 
   const showAuditContent = !loading && !error
 
+  /* =====================
+     Phase 4 governance writes (create audit / create finding / delete finding)
+  ===================== */
+  type AuditModalState =
+    | { mode: 'closed' }
+    | { mode: 'audit' }
+    | { mode: 'finding' }
+
+  const [modal, setModal] = useState<AuditModalState>({ mode: 'closed' })
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const { run } = useFormSubmit()
+
+  function errorText(caught: unknown): string {
+    return caught instanceof Error ? caught.message : 'Request failed.'
+  }
+
+  function auditFields(): FormField[] {
+    return [
+      {
+        name: 'id', label: 'Audit ID', type: 'text', required: true,
+        placeholder: 'e.g. AUD-ISO-2027-01',
+      },
+      {
+        name: 'framework', label: 'Framework', type: 'select', required: true,
+        options: ['ISO 27001', 'NIST CSF', 'PCI DSS', 'SOC 2', 'Internal Policy']
+          .map((value) => ({ value, label: value })),
+      },
+      { name: 'scope', label: 'Scope', type: 'text', required: true },
+      {
+        name: 'status', label: 'Status', type: 'select', required: true,
+        options: ['Completed', 'Under Review', 'In Progress', 'Planned', 'Overdue']
+          .map((value) => ({ value, label: value })),
+      },
+      { name: 'owner', label: 'Owner', type: 'text', required: true },
+      { name: 'dueDate', label: 'Due Date', type: 'date', required: true },
+    ]
+  }
+
+  function findingFields(): FormField[] {
+    return [
+      {
+        name: 'id', label: 'Finding ID', type: 'text', required: true,
+        placeholder: 'e.g. FND-ISO-001',
+      },
+      {
+        name: 'auditId', label: 'Audit', type: 'select', required: true,
+        options: audits.map((entry) => ({
+          value: entry.id,
+          label: `${entry.id} — ${entry.framework}`,
+        })),
+        help: 'Findings attach to an existing, visible audit.',
+      },
+      { name: 'description', label: 'Description', type: 'textarea', required: true },
+      {
+        name: 'severity', label: 'Severity', type: 'text', required: true,
+        placeholder: 'Critical / High / Medium / Low',
+      },
+      {
+        name: 'status', label: 'Status', type: 'text', required: true,
+        placeholder: 'Open',
+      },
+      { name: 'owner', label: 'Owner', type: 'text', required: true },
+      { name: 'dueDate', label: 'Due Date', type: 'date', required: true },
+    ]
+  }
+
+  async function handleAuditSubmit(values: Record<string, string | string[]>) {
+    const done = await run(async () => {
+      await apiRequest('POST', '/api/audits', {
+        id: String(values.id),
+        framework: String(values.framework),
+        scope: String(values.scope),
+        status: String(values.status),
+        owner: String(values.owner),
+        dueDate: String(values.dueDate),
+      })
+      setBanner({ kind: 'success', text: `Audit "${String(values.id)}" created.` })
+      reload()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function handleFindingSubmit(values: Record<string, string | string[]>) {
+    const done = await run(async () => {
+      await apiRequest('POST', '/api/audit-findings', {
+        id: String(values.id),
+        auditId: String(values.auditId),
+        description: String(values.description),
+        severity: String(values.severity).trim(),
+        status: String(values.status).trim(),
+        owner: String(values.owner),
+        dueDate: String(values.dueDate),
+      })
+      setBanner({ kind: 'success', text: `Finding "${String(values.id)}" created.` })
+      reload()
+      reloadFindings()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function deleteFinding(finding: AuditFindingDto) {
+    if (!window.confirm(`Delete finding "${finding.id}"? This cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await apiRequest('DELETE', `/api/audit-findings/${finding.id}`)
+      setBanner({ kind: 'success', text: `Finding "${finding.id}" removed.` })
+      reload()
+      reloadFindings()
+    } catch (caught) {
+      setBanner({ kind: 'error', text: errorText(caught) })
+    }
+  }
+
   return (
     <div className="page">
       <header className="page-intro">
@@ -131,7 +256,45 @@ function Audit() {
             governance visibility.
           </p>
         </div>
+
+        <div className="row-actions">
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => {
+              setBanner(null)
+              setModal({ mode: 'audit' })
+            }}
+          >
+            + Add Audit
+          </button>
+
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => {
+              setBanner(null)
+              setModal({ mode: 'finding' })
+            }}
+          >
+            + Add Finding
+          </button>
+        </div>
       </header>
+
+      {banner && (
+        <div className={`action-banner ${banner.kind}`} role="status">
+          <span>{banner.text}</span>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <section className="notice">
         <div className="notice-icon" aria-hidden="true">i</div>
@@ -287,18 +450,20 @@ function Audit() {
                 <th scope="col">Framework</th>
                 <th scope="col">Scope</th>
                 <th scope="col">Status</th>
+                      <th scope="col">Actions</th>
                 <th scope="col" className="money">
                   Findings
                 </th>
                 <th scope="col">Owner</th>
                 <th scope="col">Due Date</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <LoadingState title="Loading audits..." />
                   </td>
                 </tr>
@@ -306,7 +471,7 @@ function Audit() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <ErrorState
                       title="Audits could not be loaded."
                       message={error}
@@ -326,7 +491,7 @@ function Audit() {
 
               {showAuditContent && audits.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <EmptyState
                       title={
                         hasFilters
@@ -376,6 +541,33 @@ function Audit() {
                     <td>{audit.owner}</td>
 
                     <td>{formatDate(audit.dueDate)}</td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => {
+                            if (!window.confirm(`Archive audit "${audit.id}"? Its findings will leave every read view.`)) {
+                              return
+                            }
+
+                            void (async () => {
+                              try {
+                                await apiRequest('DELETE', `/api/audits/${audit.id}`)
+                                setBanner({ kind: 'success', text: `Audit "${audit.id}" archived.` })
+                                reload()
+                                reloadFindings()
+                              } catch (caught) {
+                                setBanner({ kind: 'error', text: errorText(caught) })
+                              }
+                            })()
+                          }}
+                        >
+                          Archive
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -434,14 +626,16 @@ function Audit() {
                 <th scope="col">Audit</th>
                 <th scope="col">Owner</th>
                 <th scope="col">Due Date</th>
+                <th scope="col">Actions</th>
                 <th scope="col">Status</th>
+                      <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {findingsLoading && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <LoadingState title="Loading findings..." />
                   </td>
                 </tr>
@@ -449,7 +643,7 @@ function Audit() {
 
               {!findingsLoading && findingsError && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <ErrorState
                       title="Findings could not be loaded."
                       message={findingsError}
@@ -471,7 +665,7 @@ function Audit() {
                 !findingsError &&
                 findings.length === 0 && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <EmptyState
                         title="No findings recorded yet."
                         message="The CRFIS database does not contain any audit findings yet."
@@ -509,6 +703,18 @@ function Audit() {
                         {item.status}
                       </span>
                     </td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void deleteFinding(item)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -540,6 +746,17 @@ function Audit() {
           HUMAN-IN-THE-LOOP
         </span>
       </section>
+
+      {modal.mode !== 'closed' && (
+        <FormModal
+          title={modal.mode === 'audit' ? 'Add Audit' : 'Add Finding'}
+          fields={modal.mode === 'audit' ? auditFields() : findingFields()}
+          submitLabel={modal.mode === 'audit' ? 'Create Audit' : 'Create Finding'}
+          onSubmit={modal.mode === 'audit' ? handleAuditSubmit : handleFindingSubmit}
+          onClose={() => setModal({ mode: 'closed' })}
+          notice="Governance writes require an API access token with the auditor role configured in Settings."
+        />
+      )}
     </div>
   )
 }

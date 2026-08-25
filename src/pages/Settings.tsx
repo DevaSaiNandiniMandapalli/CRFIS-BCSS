@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { demoSettings } from '../data/demoSettings'
 import type { CRFISSettings, ThemePreference } from '../types/settings'
 import { formatMoney } from '../utils/format'
+import { getStoredToken, setStoredToken } from '../api/client'
 
 function Settings() {
   const [settings, setSettings] =
@@ -20,6 +21,7 @@ function Settings() {
   })
 
   const [saved, setSaved] = useState(false)
+  const [apiToken, setApiToken] = useState(() => getStoredToken())
 
   const updateTheme = (theme: ThemePreference) => {
     setSettings((current) => ({
@@ -62,6 +64,7 @@ function Settings() {
       JSON.stringify(settings),
     )
 
+    setStoredToken(apiToken.trim())
     setSaved(true)
   }
 
@@ -97,8 +100,26 @@ function Settings() {
         </div>
       </header>
 
-      {saved && (
-        <div className="settings-saved">
+            <div className="settings-card" style={{ marginBottom: 'var(--space-5)' }}>
+        <h3>API Access Token</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+          Bearer token issued by the CRFIS operator configuration
+          (CRFIS_AUTH_TOKENS). Required for create, edit and archive
+          actions. Stored in this browser only.
+        </p>
+        <label className="form-field" style={{ maxWidth: 420 }}>
+          <span>Token</span>
+          <input
+            type="password"
+            value={apiToken}
+            placeholder="e.g. t-alice (as configured server-side)"
+            onChange={(event) => setApiToken(event.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      </div>
+
+      {saved && (        <div className="settings-saved">
           Settings saved locally for this demonstration environment.
         </div>
       )}

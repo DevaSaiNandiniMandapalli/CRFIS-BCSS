@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useApiResource, useDebouncedValue } from '../hooks/useApiResource'
 import { formatMoneyOrDash, slugify } from '../utils/format'
-import { toMoney } from '../types/money'
+import { SUPPORTED_CURRENCIES, toMoney } from '../types/money'
 import type {
+  AssetListResponse,
+  RiskListResponse,
   ScenarioDto,
   ScenarioListResponse,
 } from '../types/api'
@@ -12,6 +14,9 @@ import type {
   ScenarioStatus,
 } from '../types/scenario'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { FormModal, type FormField } from '../components/FormModal'
+import { useFormSubmit } from '../hooks/useFormSubmit'
+import { apiRequest } from '../api/client'
 
 const PAGE_SIZE = 20
 
@@ -107,6 +112,136 @@ function ScenarioRegister() {
 
   const showTableContent = !loading && !error
 
+  /* =====================
+     Phase 4 write actions (create / edit / archive)
+  ===================== */
+  // Parent pickers - visible parents only.
+  const risksResource = useApiResource<RiskListResponse>('/api/risks?page=1&pageSize=100')
+  const assetsResource = useApiResource<AssetListResponse>('/api/assets?page=1&pageSize=100')
+  const riskOptions = (risksResource.data?.data ?? []).map((risk) => ({
+    value: risk.id,
+    label: `${risk.id} — ${risk.risk.slice(0, 60)}`,
+  }))
+  const assetOptions = (assetsResource.data?.data ?? []).map((asset) => ({
+    value: asset.id,
+    label: `${asset.id} — ${asset.name}`,
+  }))
+
+  function scenarioFields(create: boolean): FormField[] {
+    const fields: FormField[] = []
+
+    if (create) {
+      fields.push({
+        name: 'id', label: 'Scenario ID', type: 'text', required: true,
+        placeholder: 'e.g. SCN-RANSOM-01',
+        help: 'Unique forever, including after archive.',
+      })
+    }
+
+    fields.push(
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      {
+        name: 'category', label: 'Category', type: 'select', required: true,
+        options: ['Ransomware', 'Data Breach', 'Business Interruption', 'Cloud Outage', 'Third Party', 'Insider Threat']
+          .map((value) => ({ value, label: value })),
+      },
+      { name: 'description', label: 'Description', type: 'textarea', required: true },
+      {
+        name: 'riskId', label: 'Related Risk', type: 'select', required: true,
+        options: riskOptions,
+      },
+      {
+        name: 'assetId', label: 'Related Asset', type: 'select', required: true,
+        options: assetOptions,
+      },
+      {
+        name: 'severity', label: 'Severity', type: 'select', required: true,
+        options: ['Critical', 'High', 'Medium', 'Low'].map((value) => ({ value, label: value })),
+      },
+      {
+        name: 'probability', label: 'Probability', type: 'text', required: true,
+        placeholder: 'Medium',
+      },
+      {
+        name: 'currency', label: 'Currency', type: 'select', required: true,
+        options: SUPPORTED_CURRENCIES.map((code) => ({ value: code, label: code })),
+      },
+      {
+        name: 'estimatedImpact', label: 'Estimated Impact', type: 'money', required: true,
+        placeholder: '8500000.00',
+      },
+      { name: 'businessImpact', label: 'Business Impact', type: 'textarea', required: true },
+      {
+        name: 'status', label: 'Status', type: 'select', required: true,
+        options: ['Draft', 'Under Review', 'Approved', 'Archived'].map((value) => ({ value, label: value })),
+      },
+      { name: 'owner', label: 'Owner', type: 'text', required: true },
+    )
+
+    return fields
+  }
+
+  type ModalState =
+    | { mode: 'closed' }
+    | { mode: 'create' }
+    | { mode: 'edit'; record: ScenarioDto }
+
+  const [modal, setModal] = useState<ModalState>({ mode: 'closed' })
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const { run } = useFormSubmit()
+
+  function errorText(caught: unknown): string {
+    return caught instanceof Error ? caught.message : 'Request failed.'
+  }
+
+  async function handleScenarioSubmit(values: Record<string, string | string[]>) {
+    const payload = {
+      id: String(values.id),
+      name: String(values.name),
+      category: String(values.category),
+      description: String(values.description),
+      riskId: String(values.riskId),
+      assetId: String(values.assetId),
+      severity: String(values.severity),
+      probability: String(values.probability).trim(),
+      currency: String(values.currency),
+      estimatedImpact: String(values.estimatedImpact).trim(),
+      businessImpact: String(values.businessImpact),
+      status: String(values.status),
+      owner: String(values.owner),
+    }
+
+    const done = await run(async () => {
+      if (modal.mode === 'edit') {
+        await apiRequest('PATCH', `/api/scenarios/${modal.record.id}`, payload)
+        setBanner({ kind: 'success', text: `Scenario "${modal.record.id}" updated.` })
+      } else {
+        await apiRequest('POST', '/api/scenarios', payload)
+        setBanner({ kind: 'success', text: `Scenario "${payload.id}" created.` })
+      }
+
+      reload()
+    })
+
+    if (done) {
+      setModal({ mode: 'closed' })
+    }
+  }
+
+  async function archiveScenario(scenario: ScenarioDto) {
+    if (!window.confirm(`Archive scenario "${scenario.id}"? It will leave every read view.`)) {
+      return
+    }
+
+    try {
+      await apiRequest('DELETE', `/api/scenarios/${scenario.id}`)
+      setBanner({ kind: 'success', text: `Scenario "${scenario.id}" archived.` })
+      reload()
+    } catch (caught) {
+      setBanner({ kind: 'error', text: errorText(caught) })
+    }
+  }
+
   return (
     <section className="page">
       <header className="page-intro">
@@ -122,10 +257,50 @@ function ScenarioRegister() {
           </p>
         </div>
 
-        <button className="primary-button" type="button">
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => {
+            setBanner(null)
+            setModal({ mode: 'create' })
+          }}
+        >
           + Add Scenario
         </button>
       </header>
+
+      {banner && (
+        <div className={`action-banner ${banner.kind}`} role="status">
+          <span>{banner.text}</span>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {modal.mode !== 'closed' && (
+        <FormModal
+          title={modal.mode === 'create' ? 'Add Scenario' : `Edit ${modal.record.id}`}
+          fields={
+            modal.mode === 'create'
+              ? scenarioFields(true)
+              : scenarioFields(false).map((field) => ({
+                  ...field,
+                  initial:
+                    (modal.record as unknown as Record<string, string>)[field.name] ?? '',
+                }))
+          }
+          submitLabel={modal.mode === 'create' ? 'Create Scenario' : 'Save Changes'}
+          onSubmit={handleScenarioSubmit}
+          onClose={() => setModal({ mode: 'closed' })}
+          notice="Writes require an API access token configured in Settings. Estimated impact is a decimal string with an explicit currency."
+        />
+      )}
 
       <div className="kpi-grid">
         <article className="kpi-card">
@@ -290,13 +465,14 @@ function ScenarioRegister() {
                 <th scope="col">Business Impact</th>
                 <th scope="col">Status</th>
                 <th scope="col">Owner</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={11}>
                     <LoadingState title="Loading scenarios..." />
                   </td>
                 </tr>
@@ -304,7 +480,7 @@ function ScenarioRegister() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={11}>
                     <ErrorState
                       title="Scenarios could not be loaded."
                       message={error}
@@ -324,7 +500,7 @@ function ScenarioRegister() {
 
               {showTableContent && scenarios.length === 0 && (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={11}>
                     <EmptyState
                       title={
                         hasFilters
@@ -409,6 +585,27 @@ function ScenarioRegister() {
                     </td>
 
                     <td>{scenario.owner}</td>
+
+                    <td>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBanner(null)
+                            setModal({ mode: 'edit', record: scenario })
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void archiveScenario(scenario)}
+                        >
+                          Archive
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 ))}
             </tbody>
