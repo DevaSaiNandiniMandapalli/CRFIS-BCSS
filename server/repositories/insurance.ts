@@ -107,6 +107,97 @@ export async function getPolicyById(id: string): Promise<PolicyWithAssets | null
   return (policy as PolicyWithAssets | null) ?? null
 }
 
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag. The
+   InsurancePolicyAsset join table is only ever mutated inside a
+   transaction together with the owning policy.
+===================== */
+
+/** Resolves which of the given asset IDs exist on the visible read path. */
+export async function findVisibleAssetIds(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) {
+    return new Set()
+  }
+
+  const rows = await prisma.asset.findMany({
+    where: { id: { in: ids }, archived: false },
+    select: { id: true },
+  })
+
+  return new Set(rows.map((row) => row.id))
+}
+
+/**
+ * Creates the policy and its covered-asset join rows atomically.
+ */
+export async function createPolicy(
+  data: Prisma.InsurancePolicyUncheckedCreateInput,
+  assetIds: string[],
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.insurancePolicy.create({ data })
+
+    if (assetIds.length > 0) {
+      await tx.insurancePolicyAsset.createMany({
+        data: assetIds.map((assetId) => ({ policyId: data.id, assetId })),
+      })
+    }
+  })
+}
+
+/**
+ * Updates the policy and, when replacement coverage is supplied, swaps the
+ * join rows in the same transaction - no orphan join rows can result.
+ * Returns false when the policy does not exist on the visible path.
+ */
+export async function updatePolicy(
+  id: string,
+  data: Prisma.InsurancePolicyUncheckedUpdateInput,
+  assetIds?: string[],
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const policy = await tx.insurancePolicy.findFirst({
+      where: { id, archived: false },
+      select: { id: true },
+    })
+
+    if (!policy) {
+      return false
+    }
+
+    if (Object.keys(data).length > 0) {
+      await tx.insurancePolicy.update({ where: { id }, data })
+    }
+
+    if (assetIds !== undefined) {
+      await tx.insurancePolicyAsset.deleteMany({ where: { policyId: id } })
+      await tx.insurancePolicyAsset.createMany({
+        data: assetIds.map((assetId) => ({ policyId: id, assetId })),
+      })
+    }
+
+    return true
+  })
+}
+
+/** Soft-deletes by flagging archived; join rows are kept for integrity. */
+export async function archivePolicy(id: string): Promise<boolean> {
+  const result = await prisma.insurancePolicy.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function policyIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.insurancePolicy.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
+}
+
 /**
  * Filter-scoped aggregate statistics for the KPI strip. Every monetary sum
  * is grouped BY currency so mixed-currency datasets never combine silently.
