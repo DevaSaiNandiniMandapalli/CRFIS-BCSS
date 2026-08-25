@@ -9,6 +9,7 @@ import { auditFindingRoutes, auditRoutes } from './routes/audits.js'
 import { reportRoutes } from './routes/reports.js'
 import { overviewRoutes } from './routes/overview.js'
 import { aiRoutes } from './routes/ai.js'
+import { authMeRoutes } from './routes/auth.js'
 import { closePrisma } from './repositories/prisma.js'
 import { errorHandlingPlugin } from './plugins/error-handler.js'
 import { authSeamPlugin } from './plugins/auth-seam.js'
@@ -44,6 +45,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(reportRoutes)
   await app.register(overviewRoutes)
   await app.register(aiRoutes)
+  await app.register(authMeRoutes)
 
   app.addHook('onClose', async () => {
     await closePrisma()

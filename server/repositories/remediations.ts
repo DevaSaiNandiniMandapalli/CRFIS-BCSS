@@ -44,6 +44,9 @@ const RELATION_SELECT = {
 function buildWhere(filters: RemediationFilters): Prisma.RemediationWhereInput {
   const where: Prisma.RemediationWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   const equality = {
     priority: filters.priority,
     status: filters.status,
@@ -99,8 +102,8 @@ export async function listRemediations(
 }
 
 export async function getRemediationById(id: string): Promise<RemediationWithRelations | null> {
-  const remediation = await prisma.remediation.findUnique({
-    where: { id },
+  const remediation = await prisma.remediation.findFirst({
+    where: { id, archived: false },
     include: RELATION_SELECT,
   })
 

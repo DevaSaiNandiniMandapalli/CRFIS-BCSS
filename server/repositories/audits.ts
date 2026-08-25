@@ -35,6 +35,9 @@ const FINDINGS_COUNT = { _count: { select: { findings: true } } } as const
 function buildWhere(filters: AuditFilters): Prisma.AuditWhereInput {
   const where: Prisma.AuditWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   if (filters.status !== undefined) {
     where.status = filters.status
   }
@@ -82,8 +85,8 @@ export async function listAudits(
 }
 
 export async function getAuditById(id: string): Promise<AuditWithCount | null> {
-  const audit = await prisma.audit.findUnique({
-    where: { id },
+  const audit = await prisma.audit.findFirst({
+    where: { id, archived: false },
     include: FINDINGS_COUNT,
   })
 

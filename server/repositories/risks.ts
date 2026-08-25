@@ -37,6 +37,9 @@ const ASSET_DISPLAY_SELECT = { select: { id: true, name: true } } as const
 function buildWhere(filters: RiskFilters): Prisma.RiskWhereInput {
   const where: Prisma.RiskWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   const equality = {
     severity: filters.severity,
     status: filters.status,
@@ -89,8 +92,8 @@ export async function listRisks(
 }
 
 export async function getRiskById(id: string): Promise<RiskWithAsset | null> {
-  const risk = await prisma.risk.findUnique({
-    where: { id },
+  const risk = await prisma.risk.findFirst({
+    where: { id, archived: false },
     include: { asset: ASSET_DISPLAY_SELECT },
   })
 

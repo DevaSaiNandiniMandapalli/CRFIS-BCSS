@@ -8,7 +8,8 @@ datasource db {
 }
 
 model Asset {
-  id           String @id
+  id           String  @id
+  archived     Boolean @default(false)
   name         String
   type         String
   businessUnit String
@@ -38,7 +39,8 @@ model Asset {
 }
 
 model Risk {
-  id         String @id
+  id         String  @id
+  archived   Boolean @default(false)
   risk       String
   assetId    String
   category   String
@@ -69,6 +71,7 @@ model Risk {
 
 model Remediation {
   id       String   @id
+  archived Boolean  @default(false)
   action   String
   riskId   String
   assetId  String
@@ -99,7 +102,8 @@ model Remediation {
 }
 
 model Scenario {
-  id          String @id
+  id          String  @id
+  archived    Boolean @default(false)
   name        String
   category    String
   description String
@@ -129,7 +133,8 @@ model Scenario {
 }
 
 model InsurancePolicy {
-  id           String @id
+  id           String  @id
+  archived     Boolean @default(false)
   policyNumber String
   provider     String
   coverageType String
@@ -168,6 +173,7 @@ model InsurancePolicyAsset {
 
 model Audit {
   id        String   @id
+  archived  Boolean  @default(false)
   framework String
   scope     String
   status    String

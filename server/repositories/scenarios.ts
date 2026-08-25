@@ -43,6 +43,9 @@ const RELATION_SELECT = {
 function buildWhere(filters: ScenarioFilters): Prisma.ScenarioWhereInput {
   const where: Prisma.ScenarioWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   const equality = {
     severity: filters.severity,
     status: filters.status,
@@ -100,8 +103,8 @@ export async function listScenarios(
 }
 
 export async function getScenarioById(id: string): Promise<ScenarioWithRelations | null> {
-  const scenario = await prisma.scenario.findUnique({
-    where: { id },
+  const scenario = await prisma.scenario.findFirst({
+    where: { id, archived: false },
     include: RELATION_SELECT,
   })
 

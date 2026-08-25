@@ -1,34 +1,32 @@
 /*
- * CRFIS authentication seam - Phase 3K.
+ * CRFIS authentication seam - real boundary as of Phase 4.
  *
- * This is an ARCHITECTURAL SEAM ONLY. There is no identity provider,
- * no session store, no credential handling, and no token validation.
- * Nothing in the codebase may claim that requests are authenticated.
+ * Identity model: operator-configured bearer tokens resolved from
+ * CRFIS_AUTH_TOKENS (see server/auth/permissions.ts). Requests carrying a
+ * valid token get a typed `crfisUser`; requests without one keep
+ * `crfisUser === null`.
  *
- * What exists:
- * - `crfisUser` request decoration (always null today) with a typed shape
- *   reserved for the future auth phase.
- * - `requireAuth`: a ready-made preHandler future protected routes will opt
- *   into once real authentication lands. It fails closed: without a real
- *   identity layer it rejects with 501 AUTH_NOT_IMPLEMENTED rather than
- *   pretending a request is authenticated.
- *
- * Current reality: every endpoint in this build is a development,
- * read-only endpoint served without authentication. Do not deploy as-is.
+ * - Read endpoints remain development-public by explicit decision.
+ * - Every write route uses `requireAuth` plus `requirePermission(...)`
+ *   from server/auth/guards.ts.
+ * - Roles sent from clients are never trusted; role resolution happens
+ *   here, server-side, from operator configuration only.
  */
 
 export interface CrfisRequestUser {
-  /** Stable user identifier from the future identity provider. */
+  /** Stable user identifier from operator configuration. */
   id: string
-  /** Coarse role label (e.g. 'admin' | 'analyst' | 'viewer'). */
+  /** Coarse role label - resolved server-side, never trusted from input. */
   role: string
-  /** Fine-grained permissions resolved by the future authorization layer. */
+  /** Fine-grained permissions resolved by the central authorization layer. */
   permissions: string[]
+  /** Opaque reference to the matched operator-configured credential. */
+  authTokenId?: string
 }
 
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import fp from 'fastify-plugin'
-import { HttpError } from './error-handler.js'
+import { resolveToken } from '../auth/permissions.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -36,24 +34,45 @@ declare module 'fastify' {
   }
 }
 
-/**
- * PreHandler for FUTURE routes that must be protected. Intentionally
- * unusable today: there is no authentication mechanism that could populate
- * `crfisUser`, so this always rejects with 501.
- */
-export async function requireAuth(request: FastifyRequest): Promise<void> {
-  if (request.crfisUser === null) {
-    throw new HttpError(
-      501,
-      'AUTH_NOT_IMPLEMENTED',
-      'Authentication is not configured in this development build.',
-    )
+function extractBearerToken(authorization: string | undefined): string | undefined {
+  if (!authorization) {
+    return undefined
   }
+
+  const [scheme, value] = authorization.split(' ')
+
+  if (scheme?.toLowerCase() !== 'bearer' || !value) {
+    return undefined
+  }
+
+  return value.trim()
 }
 
 export const authSeamPlugin = fp(
   async function authSeamPlugin(app: FastifyInstance): Promise<void> {
     app.decorateRequest<CrfisRequestUser | null>('crfisUser', null)
+
+    app.addHook('onRequest', async (request) => {
+      const token = extractBearerToken(request.headers.authorization)
+
+      if (token === undefined) {
+        request.crfisUser = null
+        return
+      }
+
+      const user = resolveToken(token)
+
+      if (!user) {
+        // Explicit but invalid credentials must never fall through as
+        // anonymous reads.
+        throw Object.assign(new Error('Invalid API credentials.'), {
+          statusCode: 401,
+          code: 'AUTH_INVALID_TOKEN',
+        })
+      }
+
+      request.crfisUser = user
+    })
   },
   { name: 'auth-seam' },
 )

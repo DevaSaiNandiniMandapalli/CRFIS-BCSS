@@ -37,6 +37,9 @@ export const HIGH_VALUE_THRESHOLD = 1_000_000
 function buildWhere(filters: AssetFilters): Prisma.AssetWhereInput {
   const where: Prisma.AssetWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   const equality = {
     criticality: filters.criticality,
     status: filters.status,
@@ -87,7 +90,7 @@ export async function listAssets(
 }
 
 export async function getAssetById(id: string): Promise<Asset | null> {
-  return prisma.asset.findUnique({ where: { id } })
+  return prisma.asset.findFirst({ where: { id, archived: false } })
 }
 
 /**

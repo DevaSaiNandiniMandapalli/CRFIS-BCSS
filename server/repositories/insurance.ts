@@ -44,6 +44,9 @@ const ASSET_LINKS_SELECT = {
 function buildWhere(filters: InsuranceFilters): Prisma.InsurancePolicyWhereInput {
   const where: Prisma.InsurancePolicyWhereInput = {}
 
+  // Soft-deleted records are excluded from every read path.
+  where.archived = false
+
   const equality = {
     status: filters.status,
     coverageType: filters.coverageType,
@@ -96,8 +99,8 @@ export async function listPolicies(
 }
 
 export async function getPolicyById(id: string): Promise<PolicyWithAssets | null> {
-  const policy = await prisma.insurancePolicy.findUnique({
-    where: { id },
+  const policy = await prisma.insurancePolicy.findFirst({
+    where: { id, archived: false },
     include: { assetLinks: ASSET_LINKS_SELECT },
   })
 
