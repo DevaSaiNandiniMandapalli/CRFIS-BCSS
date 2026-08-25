@@ -46,6 +46,12 @@ function buildWhere(filters: ScenarioFilters): Prisma.ScenarioWhereInput {
   // Soft-deleted records are excluded from every read path.
   where.archived = false
 
+  // A scenario whose Risk or Asset has been archived is hidden from normal
+  // reads as well - the relationships stay intact but the record leaves
+  // every visible surface until its parents are restored.
+  where.risk = { is: { archived: false } }
+  where.asset = { is: { archived: false } }
+
   const equality = {
     severity: filters.severity,
     status: filters.status,
@@ -67,8 +73,8 @@ function buildWhere(filters: ScenarioFilters): Prisma.ScenarioWhereInput {
       { description: needle },
       { owner: needle },
       { businessImpact: needle },
-      { risk: { is: { risk: needle } } },
-      { asset: { is: { name: needle } } },
+      { risk: { is: { archived: false, risk: needle } } },
+      { asset: { is: { archived: false, name: needle } } },
     ]
   }
 
@@ -104,11 +110,52 @@ export async function listScenarios(
 
 export async function getScenarioById(id: string): Promise<ScenarioWithRelations | null> {
   const scenario = await prisma.scenario.findFirst({
-    where: { id, archived: false },
+    where: { id, archived: false, risk: { is: { archived: false } }, asset: { is: { archived: false } } },
     include: RELATION_SELECT,
   })
 
   return (scenario as ScenarioWithRelations | null) ?? null
+}
+
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag.
+===================== */
+
+export async function createScenario(
+  data: Prisma.ScenarioUncheckedCreateInput,
+): Promise<Scenario> {
+  return prisma.scenario.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the record does not exist. */
+export async function updateScenario(
+  id: string,
+  data: Prisma.ScenarioUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.scenario.updateMany({
+    where: { id, archived: false },
+    data,
+  })
+
+  return result.count
+}
+
+/** Soft-deletes by flagging archived. Returns false when not found. */
+export async function archiveScenario(id: string): Promise<boolean> {
+  const result = await prisma.scenario.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function scenarioIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.scenario.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   riskIdExists,
   type RiskStats,
 } from '../repositories/risks.js'
-import { getAssetById } from './assets.js'
+import { assertAssetAvailable } from './assets.js'
 import { mapRisk, type MappedRisk } from '../utils/mappers.js'
 import { buildPaginationMeta } from '../schemas/query.js'
 
@@ -99,19 +99,6 @@ export interface RiskCreateInput {
   exposure: string
   status: string
   owner: string
-}
-
-/**
- * Validates that the referenced Asset exists on a visible (non-archived)
- * read path. Archived assets are treated as nonexistent for new writes so
- * relationships can never silently attach to hidden records.
- */
-async function assertAssetAvailable(assetId: string): Promise<void> {
-  try {
-    await getAssetById(assetId)
-  } catch {
-    throw new HttpError(404, 'ASSET_NOT_FOUND', `Asset "${assetId}" was not found.`)
-  }
 }
 
 export async function createRisk(input: RiskCreateInput): Promise<MappedRisk> {

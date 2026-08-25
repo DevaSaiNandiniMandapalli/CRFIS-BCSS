@@ -95,6 +95,19 @@ export interface AssetCreateInput {
   owner: string
 }
 
+/**
+ * Validates that a referenced Asset resolves on the visible (non-archived)
+ * read path. Archived assets are treated as nonexistent for writes so new
+ * relationships can never silently attach to hidden records.
+ */
+export async function assertAssetAvailable(assetId: string): Promise<void> {
+  try {
+    await getAssetById(assetId)
+  } catch {
+    throw new HttpError(404, 'ASSET_NOT_FOUND', `Asset "${assetId}" was not found.`)
+  }
+}
+
 export async function createAsset(
   input: AssetCreateInput,
   actorId: string,

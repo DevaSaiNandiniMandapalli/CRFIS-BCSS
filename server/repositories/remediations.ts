@@ -47,6 +47,12 @@ function buildWhere(filters: RemediationFilters): Prisma.RemediationWhereInput {
   // Soft-deleted records are excluded from every read path.
   where.archived = false
 
+  // A remediation whose Risk or Asset has been archived is hidden from
+  // normal reads as well - the relationships stay intact but the record
+  // leaves every visible surface until its parents are restored.
+  where.risk = { is: { archived: false } }
+  where.asset = { is: { archived: false } }
+
   const equality = {
     priority: filters.priority,
     status: filters.status,
@@ -66,8 +72,8 @@ function buildWhere(filters: RemediationFilters): Prisma.RemediationWhereInput {
       { action: needle },
       { owner: needle },
       { category: needle },
-      { risk: { is: { risk: needle } } },
-      { asset: { is: { name: needle } } },
+      { risk: { is: { archived: false, risk: needle } } },
+      { asset: { is: { archived: false, name: needle } } },
     ]
   }
 
@@ -103,11 +109,52 @@ export async function listRemediations(
 
 export async function getRemediationById(id: string): Promise<RemediationWithRelations | null> {
   const remediation = await prisma.remediation.findFirst({
-    where: { id, archived: false },
+    where: { id, archived: false, risk: { is: { archived: false } }, asset: { is: { archived: false } } },
     include: RELATION_SELECT,
   })
 
   return (remediation as RemediationWithRelations | null) ?? null
+}
+
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag.
+===================== */
+
+export async function createRemediation(
+  data: Prisma.RemediationUncheckedCreateInput,
+): Promise<Remediation> {
+  return prisma.remediation.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the record does not exist. */
+export async function updateRemediation(
+  id: string,
+  data: Prisma.RemediationUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.remediation.updateMany({
+    where: { id, archived: false },
+    data,
+  })
+
+  return result.count
+}
+
+/** Soft-deletes by flagging archived. Returns false when not found. */
+export async function archiveRemediation(id: string): Promise<boolean> {
+  const result = await prisma.remediation.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function remediationIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.remediation.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
 }
 
 /**
