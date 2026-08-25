@@ -40,6 +40,11 @@ function buildWhere(filters: RiskFilters): Prisma.RiskWhereInput {
   // Soft-deleted records are excluded from every read path.
   where.archived = false
 
+  // A risk whose related Asset has been archived is hidden from normal
+  // reads as well - the relationship stays intact but the record leaves
+  // every visible surface until its Asset is restored.
+  where.asset = { is: { archived: false } }
+
   const equality = {
     severity: filters.severity,
     status: filters.status,
@@ -60,7 +65,7 @@ function buildWhere(filters: RiskFilters): Prisma.RiskWhereInput {
       { risk: needle },
       { category: needle },
       { owner: needle },
-      { asset: { is: { name: needle } } },
+      { asset: { is: { archived: false, name: needle } } },
     ]
   }
 
@@ -93,11 +98,52 @@ export async function listRisks(
 
 export async function getRiskById(id: string): Promise<RiskWithAsset | null> {
   const risk = await prisma.risk.findFirst({
-    where: { id, archived: false },
+    where: { id, archived: false, asset: { is: { archived: false } } },
     include: { asset: ASSET_DISPLAY_SELECT },
   })
 
   return (risk as RiskWithAsset | null) ?? null
+}
+
+/* =====================
+   Write operations (Phase 4). Soft-delete via the archived flag.
+===================== */
+
+export async function createRisk(
+  data: Prisma.RiskUncheckedCreateInput,
+): Promise<Risk> {
+  return prisma.risk.create({ data })
+}
+
+/** Returns the number of rows updated; 0 means the risk does not exist. */
+export async function updateRisk(
+  id: string,
+  data: Prisma.RiskUncheckedUpdateInput,
+): Promise<number> {
+  const result = await prisma.risk.updateMany({
+    where: { id, archived: false },
+    data,
+  })
+
+  return result.count
+}
+
+/** Soft-deletes by flagging archived. Returns false when not found. */
+export async function archiveRisk(id: string): Promise<boolean> {
+  const result = await prisma.risk.updateMany({
+    where: { id, archived: false },
+    data: { archived: true },
+  })
+
+  return result.count > 0
+}
+
+export async function riskIdExists(id: string): Promise<boolean> {
+  // Duplicate detection must consider archived rows too - IDs stay unique
+  // across the whole table, including soft-deleted records.
+  const found = await prisma.risk.findUnique({ where: { id }, select: { id: true } })
+
+  return found !== null
 }
 
 /**

@@ -3,8 +3,13 @@ import {
   getRiskById as findRiskById,
   getRiskStats,
   listRisks as fetchRisks,
+  createRisk as repoCreateRisk,
+  updateRisk as repoUpdateRisk,
+  archiveRisk as repoArchiveRisk,
+  riskIdExists,
   type RiskStats,
 } from '../repositories/risks.js'
+import { getAssetById } from './assets.js'
 import { mapRisk, type MappedRisk } from '../utils/mappers.js'
 import { buildPaginationMeta } from '../schemas/query.js'
 
@@ -77,4 +82,90 @@ export async function getRiskById(id: string): Promise<MappedRisk> {
   }
 
   return mapRisk(risk)
+}
+
+/* =====================
+   Write operations (Phase 4)
+===================== */
+
+export interface RiskCreateInput {
+  id: string
+  risk: string
+  assetId: string
+  category: string
+  severity: string
+  likelihood: string
+  currency: string
+  exposure: string
+  status: string
+  owner: string
+}
+
+/**
+ * Validates that the referenced Asset exists on a visible (non-archived)
+ * read path. Archived assets are treated as nonexistent for new writes so
+ * relationships can never silently attach to hidden records.
+ */
+async function assertAssetAvailable(assetId: string): Promise<void> {
+  try {
+    await getAssetById(assetId)
+  } catch {
+    throw new HttpError(404, 'ASSET_NOT_FOUND', `Asset "${assetId}" was not found.`)
+  }
+}
+
+export async function createRisk(input: RiskCreateInput): Promise<MappedRisk> {
+  if (await riskIdExists(input.id)) {
+    throw new HttpError(409, 'ID_ALREADY_EXISTS', `Risk "${input.id}" already exists.`)
+  }
+
+  await assertAssetAvailable(input.assetId)
+
+  const created = await repoCreateRisk({
+    ...input,
+    lastUpdated: new Date(),
+  })
+
+  // Re-read on the normal visible path so the DTO carries the real Asset
+  // display entity instead of an assembled placeholder.
+  return getRiskById(created.id)
+}
+
+export interface RiskUpdateInput {
+  risk?: string
+  assetId?: string
+  category?: string
+  severity?: string
+  likelihood?: string
+  currency?: string
+  exposure?: string
+  status?: string
+  owner?: string
+}
+
+export async function updateRisk(id: string, input: RiskUpdateInput): Promise<MappedRisk> {
+  if (input.assetId !== undefined) {
+    await assertAssetAvailable(input.assetId)
+  }
+
+  const updated = await repoUpdateRisk(id, {
+    ...input,
+    lastUpdated: new Date(),
+  })
+
+  if (updated === 0) {
+    throw new HttpError(404, 'RISK_NOT_FOUND', `Risk "${id}" was not found.`)
+  }
+
+  return getRiskById(id)
+}
+
+export async function archiveRisk(id: string): Promise<{ id: string; archived: true }> {
+  const archived = await repoArchiveRisk(id)
+
+  if (!archived) {
+    throw new HttpError(404, 'RISK_NOT_FOUND', `Risk "${id}" was not found.`)
+  }
+
+  return { id, archived: true }
 }

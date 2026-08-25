@@ -7,7 +7,14 @@ import {
   riskStatusSchema,
 } from '../schemas/domain.js'
 import { listQuerySchema } from '../schemas/query.js'
-import { getRiskById, listRisks } from '../services/risks.js'
+import {
+  currencySchema,
+  entityIdSchema,
+  moneyStringSchema,
+  shortTextSchema,
+} from '../schemas/write.js'
+import { requireAuth, requirePermission } from '../auth/guards.js'
+import { getRiskById, createRisk, updateRisk, archiveRisk, listRisks } from '../services/risks.js'
 import { sendSuccess } from '../utils/api-response.js'
 
 /*
@@ -15,6 +22,9 @@ import { sendSuccess } from '../utils/api-response.js'
  *                         the related Asset display entity loaded through
  *                         Prisma relations.
  * GET /api/risks/:id    - single mapped risk including its Asset.
+ *
+ * Write endpoints require an authenticated user with risks:write. Risks
+ * whose Asset is archived are hidden from every read path.
  */
 
 export const riskListQuerySchema = listQuerySchema(
@@ -33,6 +43,28 @@ export const riskListQuerySchema = listQuerySchema(
   likelihood: riskLikelihoodSchema.optional(),
 })
 
+export const riskCreateSchema = z.object({
+  id: entityIdSchema,
+  risk: shortTextSchema('Risk'),
+  assetId: entityIdSchema,
+  category: riskCategorySchema,
+  severity: riskSeveritySchema,
+  likelihood: riskLikelihoodSchema,
+  currency: currencySchema,
+  exposure: moneyStringSchema,
+  status: riskStatusSchema,
+  owner: shortTextSchema('Owner'),
+})
+
+export const riskUpdateSchema = riskCreateSchema
+  .omit({ id: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide at least one field to update.',
+  })
+
+const idParamsSchema = z.object({ id: entityIdSchema })
+
 export async function riskRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/risks', async (request, reply) => {
     const query = riskListQuerySchema.parse(request.query)
@@ -42,9 +74,45 @@ export async function riskRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.get('/api/risks/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
+    const { id } = idParamsSchema.parse(request.params)
     const risk = await getRiskById(id)
 
     return sendSuccess(reply, risk)
   })
+
+  app.post(
+    '/api/risks',
+    { preHandler: [requireAuth, requirePermission('risks:write')] },
+    async (request, reply) => {
+      const input = riskCreateSchema.parse(request.body)
+      const risk = await createRisk(input)
+
+      return sendSuccess(reply, risk, undefined, 201)
+    },
+  )
+
+  app.patch(
+    '/api/risks/:id',
+    { preHandler: [requireAuth, requirePermission('risks:write')] },
+    async (request, reply) => {
+      const { id } = idParamsSchema.parse(request.params)
+      const input = riskUpdateSchema.parse(request.body)
+      const risk = await updateRisk(id, input)
+
+      return sendSuccess(reply, risk)
+    },
+  )
+
+  app.delete(
+    '/api/risks/:id',
+    { preHandler: [requireAuth, requirePermission('risks:write')] },
+    async (request, reply) => {
+      const { id } = idParamsSchema.parse(request.params)
+      // Soft-delete: remediations/scenarios/findings keep their references;
+      // the record leaves all visible read paths.
+      const result = await archiveRisk(id)
+
+      return sendSuccess(reply, result)
+    },
+  )
 }
