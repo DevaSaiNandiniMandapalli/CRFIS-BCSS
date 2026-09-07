@@ -155,7 +155,11 @@ export function FormModal({ title, fields, submitLabel, busyLabel, onSubmit, onC
                       value={value as string}
                       onChange={(event) => setValue(field.name, event.target.value)}
                     >
-                      {!field.required && <option value="">—</option>}
+                      {/* Always render an explicit blank choice: without it the
+                          browser auto-displays the first option while React
+                          state stays '', producing phantom pre-selected
+                          dropdowns that fail validation on submit. */}
+                      <option value="">—</option>
                       {field.options?.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}

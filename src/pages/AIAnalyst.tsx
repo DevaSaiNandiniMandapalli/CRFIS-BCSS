@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { demoAnalystMessages } from '../data/demoAnalyst'
 import type { AnalystMessage } from '../types/aiAnalyst'
 import { useApiResource } from '../hooks/useApiResource'
 import type { AiAnalysisResponse } from '../types/api'
 import { toMoney, type CurrencyCode } from '../types/money'
 import { formatMoneyOrDash } from '../utils/format'
+
 
 const suggestedQuestions = [
   'Which risks have the highest financial exposure?',
@@ -13,13 +13,24 @@ const suggestedQuestions = [
   'How does insurance coverage compare with exposure?',
 ]
 
+type ChatResponse = {
+  data: {
+    mode: string
+    provider: string
+    model: string
+    humanInTheLoop: boolean
+    answer: string
+    generatedAt: string
+    disclaimer: string
+  }
+}
+
 function AIAnalyst() {
-  const [messages, setMessages] =
-    useState<AnalystMessage[]>(demoAnalystMessages)
+const [messages, setMessages] = useState<AnalystMessage[]>([])
 
   const [input, setInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
 
-  // Deterministic, clearly-labelled analysis from live CRFIS statistics.
   const {
     data: analysisData,
     loading: analysisLoading,
@@ -41,26 +52,35 @@ function AIAnalyst() {
       return '—'
     }
 
-    return formatMoneyOrDash(toMoney(item.amount, item.currency as CurrencyCode))
+    return formatMoneyOrDash(
+      toMoney(item.amount, item.currency as CurrencyCode),
+    )
   }
 
   const highestExposureCard = {
-    value: analysisLoading ? '…' : firstItemValue('highest-exposure-risks'),
+    value: analysisLoading
+      ? '…'
+      : firstItemValue('highest-exposure-risks'),
     small:
       insightById('highest-exposure-risks')?.items?.[0]?.label ??
       'No risks on record',
   }
 
-  const criticalCount = insightById('critical-risk-count')?.count ?? 0
+  const criticalCount =
+    insightById('critical-risk-count')?.count ?? 0
 
   const reductionCard = {
-    value: analysisLoading ? '…' : firstItemValue('greatest-expected-reduction'),
+    value: analysisLoading
+      ? '…'
+      : firstItemValue('greatest-expected-reduction'),
     small:
       insightById('greatest-expected-reduction')?.items?.[0]?.label ??
       'No remediation actions on record',
   }
 
-  const coverageBuckets = insightById('insurance-coverage')?.buckets
+  const coverageBuckets =
+    insightById('insurance-coverage')?.buckets
+
   const coverageValue =
     analysisLoading
       ? '…'
@@ -68,7 +88,9 @@ function AIAnalyst() {
         ? '—'
         : Object.entries(coverageBuckets ?? {})
             .map(([currency, amount]) =>
-              formatMoneyOrDash(toMoney(amount, currency as CurrencyCode)),
+              formatMoneyOrDash(
+                toMoney(amount, currency as CurrencyCode),
+              ),
             )
             .join('  +  ')
 
@@ -76,14 +98,14 @@ function AIAnalyst() {
     setInput(question)
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = input.trim()
 
-    if (!trimmed) {
+    if (!trimmed || chatLoading) {
       return
     }
 
-    const now = new Date().toLocaleTimeString([], {
+    const userTimestamp = new Date().toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -92,26 +114,84 @@ function AIAnalyst() {
       id: `MSG-${Date.now()}`,
       role: 'user',
       content: trimmed,
-      timestamp: now,
+      timestamp: userTimestamp,
       isDemo: true,
     }
 
-    const assistantMessage: AnalystMessage = {
-      id: `MSG-${Date.now()}-AI`,
-      role: 'assistant',
-      content:
-        'This is a demonstration response. The production CRFIS AI Analyst will eventually analyze connected risk, asset, remediation, scenario, financial, and insurance data to provide decision support.',
-      timestamp: now,
-      isDemo: true,
-    }
-
-    setMessages((current) => [
-      ...current,
-      userMessage,
-      assistantMessage,
-    ])
-
+    setMessages((current) => [...current, userMessage])
     setInput('')
+    setChatLoading(true)
+
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: trimmed,
+        }),
+      })
+
+      const result = (await response.json()) as
+        | ChatResponse
+        | { error?: string }
+
+      if (!response.ok) {
+        const errorMessage =
+          'error' in result && result.error
+            ? result.error
+            : 'The local Ollama Analyst is currently unavailable.'
+
+        throw new Error(errorMessage)
+      }
+
+      if (
+        !('data' in result) ||
+        typeof result.data?.answer !== 'string'
+      ) {
+        throw new Error('Invalid response from the Analyst service.')
+      }
+
+      const assistantMessage: AnalystMessage = {
+        id: `MSG-${Date.now()}-AI`,
+        role: 'assistant',
+        content: result.data.answer,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        isDemo: true,
+      }
+
+      setMessages((current) => [
+        ...current,
+        assistantMessage,
+      ])
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'The local Ollama Analyst is currently unavailable.'
+
+      const assistantMessage: AnalystMessage = {
+        id: `MSG-${Date.now()}-AI-ERROR`,
+        role: 'assistant',
+        content: `Unable to get an Analyst response: ${message}`,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        isDemo: true,
+      }
+
+      setMessages((current) => [
+        ...current,
+        assistantMessage,
+      ])
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   const handleKeyDown = (
@@ -128,7 +208,7 @@ function AIAnalyst() {
         <div className="page-intro-text">
           <div className="page-title-row">
             <h2>AI Analyst</h2>
-            <span className="chip">DEMO AI</span>
+            <span className="chip">LOCAL OLLAMA</span>
           </div>
 
           <p>
@@ -144,15 +224,16 @@ function AIAnalyst() {
       </header>
 
       <div className="notice">
-        <span className="notice-icon" aria-hidden="true">i</span>
+        <span className="notice-icon" aria-hidden="true">
+          i
+        </span>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Local Ollama environment</strong>
 
           <p>
-            AI responses on this screen are fictional demonstration
-            responses. No external AI provider, production data,
-            database, or API is connected at this stage.
+            AI responses use the local Ollama provider with CRFIS
+            decision-support context. Human review is required.
           </p>
         </div>
       </div>
@@ -164,12 +245,16 @@ function AIAnalyst() {
             <h2>Executive Signals</h2>
           </div>
 
-          <span className="chip chip--muted">DETERMINISTIC ANALYSIS</span>
+          <span className="chip chip--muted">
+            DETERMINISTIC ANALYSIS
+          </span>
         </div>
 
         {analysisError && (
           <div className="notice">
-            <span className="notice-icon" aria-hidden="true">!</span>
+            <span className="notice-icon" aria-hidden="true">
+              !
+            </span>
 
             <div>
               <strong>Analysis could not be loaded.</strong>
@@ -243,7 +328,9 @@ function AIAnalyst() {
               <h2>Ask the Analyst</h2>
             </div>
 
-            <span className="chip chip--muted">DEMO MODE</span>
+            <span className="chip chip--muted">
+              LOCAL OLLAMA
+            </span>
           </div>
 
           <div
@@ -288,22 +375,26 @@ function AIAnalyst() {
                 type="text"
                 placeholder="e.g. Which risks should leadership prioritize?"
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) =>
+                  setInput(event.target.value)
+                }
                 onKeyDown={handleKeyDown}
+                disabled={chatLoading}
               />
 
               <button
                 className="primary-button"
                 type="button"
                 onClick={handleSend}
+                disabled={chatLoading}
               >
-                Ask Analyst
+                {chatLoading ? 'Analyzing...' : 'Ask Analyst'}
               </button>
             </div>
 
             <small>
-              Press Enter to submit. Responses are demonstration
-              placeholders.
+              Press Enter to submit. Responses are generated by
+              local Ollama decision support.
             </small>
           </div>
         </section>
@@ -315,8 +406,8 @@ function AIAnalyst() {
             <h2>Start with a question</h2>
 
             <p>
-              Explore the types of executive questions the future
-              CRFIS intelligence layer will support.
+              Explore executive questions supported by the local
+              CRFIS intelligence layer.
             </p>
           </div>
 
@@ -325,7 +416,9 @@ function AIAnalyst() {
               <button
                 type="button"
                 key={question}
-                onClick={() => handleSuggestedQuestion(question)}
+                onClick={() =>
+                  handleSuggestedQuestion(question)
+                }
               >
                 <span>↗</span>
                 {question}
@@ -346,8 +439,8 @@ function AIAnalyst() {
             </ul>
 
             <small>
-              Production data connections will be implemented in a
-              later phase.
+              Local Ollama receives the current CRFIS analysis
+              context. Human review remains required.
             </small>
           </div>
         </aside>
@@ -362,10 +455,10 @@ function AIAnalyst() {
           <h2>Human decisions remain at the center.</h2>
 
           <p>
-            The future CRFIS AI layer will support analysts and
-            executives by explaining risk information, surfacing
-            relationships, and presenting financial context while
-            keeping human review and approval in the decision loop.
+            The CRFIS AI layer supports analysts and executives by
+            explaining risk information, surfacing relationships,
+            and presenting financial context while keeping human
+            review and approval in the decision loop.
           </p>
         </div>
 

@@ -450,13 +450,13 @@ function Audit() {
                 <th scope="col">Framework</th>
                 <th scope="col">Scope</th>
                 <th scope="col">Status</th>
-                      <th scope="col">Actions</th>
+
                 <th scope="col" className="money">
                   Findings
                 </th>
                 <th scope="col">Owner</th>
                 <th scope="col">Due Date</th>
-                <th scope="col">Actions</th>
+
               </tr>
             </thead>
 
@@ -626,9 +626,9 @@ function Audit() {
                 <th scope="col">Audit</th>
                 <th scope="col">Owner</th>
                 <th scope="col">Due Date</th>
-                <th scope="col">Actions</th>
+
                 <th scope="col">Status</th>
-                      <th scope="col">Actions</th>
+
               </tr>
             </thead>
 

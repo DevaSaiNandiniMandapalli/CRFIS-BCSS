@@ -9,8 +9,11 @@
     "build": "tsc -b && vite build",
     "build:api": "tsc -p tsconfig.server.build.json",
     "start:api": "node --env-file=.env dist-server/server/index.js",
+    "test:ui": "tsx --tsconfig tsconfig.test.json --test --test-force-exit \"src/**/*.test.tsx\"",
     "test:api": "node --env-file=.env --import tsx --test --test-concurrency=1 \"server/**/*.test.ts\"",
+    "seed:demo": "tsx --env-file=.env server/seed-demo.ts",
     "lint": "eslint .",
+    "dev:all": "node scripts/dev-all.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
