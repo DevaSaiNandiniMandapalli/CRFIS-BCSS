@@ -10,15 +10,15 @@
     "build:api": "tsc -p tsconfig.server.build.json",
     "start:api": "node --env-file=.env dist-server/server/index.js",
     "test:ui": "tsx --tsconfig tsconfig.test.json --test --test-force-exit \"src/**/*.test.tsx\"",
-    "test:api": "node --env-file=.env --import tsx --test --test-concurrency=1 \"server/**/*.test.ts\"",
+    "test:api": "node --env-file=.env.test --import tsx --test --test-concurrency=1 \"server/**/*.test.ts\"",
     "seed:demo": "tsx --env-file=.env server/seed-demo.ts",
     "lint": "eslint .",
     "dev:all": "node scripts/dev-all.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "fastify": "^5.12.1",
     "fastify-plugin": "^6.0.0",
     "pg": "^8.23.0",
@@ -26,7 +26,7 @@
     "react-dom": "^19.2.8",
     "zod": "^4.4.3"
   },
-  "devDependencies": {
+    "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
@@ -36,10 +36,15 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.0",
     "tsx": "^4.23.12",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.2.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.3",
+    "fast-uri": "4.1.4"
   }
 }
