@@ -300,7 +300,7 @@ function Audit() {
         <div className="notice-icon" aria-hidden="true">i</div>
 
         <div>
-          <strong>Demonstration environment</strong>
+          <strong>Connected to the CRFIS database</strong>
 
           <p>
             Audits and findings are served live from the CRFIS database
