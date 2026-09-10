@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
 import './App.css'
+import logo from './assets/logo.png'
 import Overview from './pages/Overview'
 import RiskRegister from './pages/RiskRegister'
 import AssetRegister from './pages/AssetRegister'
@@ -54,12 +55,40 @@ function App() {
   })
 
   const [activePage, setActivePage] = useState('Overview')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
     localStorage.setItem('crfis-theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setSearchOpen(true)
+      }
+
+      if (event.key === 'Escape') {
+        setSearchOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const filteredNavigation = navigation.filter((item) =>
+    item.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  )
+
+  const openPageFromSearch = (page: string) => {
+    setActivePage(page)
+    setSearchOpen(false)
+    setSearchQuery('')
+  }
   const pageTitle =
     activePage === 'Overview' ? 'Executive Overview' : activePage
 
@@ -69,11 +98,10 @@ function App() {
     <div className="crfis-app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">C</div>
-
-          <div>
-            <strong>CRFIS</strong>
-            <span>BCSSL</span>
+          <img src={logo} alt="Blue Cloud Softech Solutions Ltd." className="brand-logo" />
+          <div className="brand-company">
+            <strong>Blue Cloud Softech Solutions Ltd.</strong>
+            <span>Think Big | AI-First</span>
           </div>
         </div>
 
@@ -121,7 +149,7 @@ function App() {
             <button
               className="search"
               type="button"
-              aria-label="Search (not yet available)"
+              aria-label="Search CRFIS" onClick={() => setSearchOpen(true)}
             >
               <span aria-hidden="true">⌕</span>
               <span>Search</span>
@@ -191,15 +219,72 @@ function App() {
 
           <footer>
             <span>
-              CRFIS • Cyber Risk Financial Impact System
+              CRFIS â€¢ Cyber Risk Financial Impact System
             </span>
 
             <span>
-              BCSSL • From Information to Intelligence
+              BCSSL â€¢ From Information to Intelligence
             </span>
           </footer>
         </div>
-      </main>
+
+      {searchOpen && (
+        <div
+          className="modal-overlay search-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search CRFIS modules"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSearchOpen(false)
+            }
+          }}
+        >
+          <div className="modal search-modal">
+            <div className="modal-header">
+              <h3>Search CRFIS</h3>
+
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Close search"
+                onClick={() => setSearchOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <input
+              className="search-field"
+              type="search"
+              autoFocus
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search modules..."
+              aria-label="Search modules"
+            />
+
+            <div className="search-results">
+              {filteredNavigation.length > 0 ? (
+                filteredNavigation.map((item) => (
+                  <button
+                    key={item}
+                    className="search-result"
+                    type="button"
+                    onClick={() => openPageFromSearch(item)}
+                  >
+                    <span>{item}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="modal-notice">
+                  No matching modules found.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}</main>
     </div>
   )
 }
