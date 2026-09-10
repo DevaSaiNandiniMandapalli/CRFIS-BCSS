@@ -39,8 +39,8 @@ function Overview() {
   // Priority exposures: top real risks by exposure.
   const risksUrl = '/api/risks?pageSize=3&sort=exposure&order=desc'
 
-  const { data: overviewData, loading, error, reload } =
-    useApiResource<OverviewResponse>(overviewUrl)
+  const { data: overviewResponse, loading, error, reload } =
+    useApiResource<{ data: OverviewResponse }>(overviewUrl)
 
   const { data: riskPage } = useApiResource<RiskListResponse>(risksUrl)
 
@@ -94,20 +94,20 @@ function Overview() {
         </section>
       )}
 
-      {!loading && !error && overviewData && (
+      {!loading && !error && overviewResponse?.data && (
         <>
           <section className="kpi-grid" aria-label="Financial risk metrics">
             <article className="kpi-card">
               <span className="kpi-label">Total Financial Exposure</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.exposureByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.exposureByCurrency)}
               </strong>
 
               <small className="kpi-note">Risk register, per currency</small>
 
               <div className="kpi-trend">
-                {overviewData.riskCount} risks on record
+                {overviewResponse.data.riskCount} risks on record
               </div>
             </article>
 
@@ -115,7 +115,7 @@ function Overview() {
               <span className="kpi-label">Annualized Loss Expectancy</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.annualizedLossExpectancyByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.annualizedLossExpectancyByCurrency)}
               </strong>
 
               <small className="kpi-note">Illustrative 25% exposure factor</small>
@@ -128,7 +128,7 @@ function Overview() {
             <article className="kpi-card accent">
               <span className="kpi-label">Critical Risks</span>
 
-              <strong className="kpi-value">{overviewData.criticalRiskCount}</strong>
+              <strong className="kpi-value">{overviewResponse.data.criticalRiskCount}</strong>
 
               <small className="kpi-note">Requires attention</small>
 
@@ -141,13 +141,13 @@ function Overview() {
               <span className="kpi-label">Remediation Opportunity</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.remediationOpportunityByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.remediationOpportunityByCurrency)}
               </strong>
 
               <small className="kpi-note">Expected reduction, per currency</small>
 
               <div className="kpi-trend">
-                {overviewData.openRemediationCount} open actions
+                {overviewResponse.data.openRemediationCount} open actions
               </div>
             </article>
           </section>
@@ -160,7 +160,7 @@ function Overview() {
               <span className="kpi-label">Remaining Exposure</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.remainingExposureByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.remainingExposureByCurrency)}
               </strong>
 
               <small className="kpi-note">Per currency after reductions</small>
@@ -174,7 +174,7 @@ function Overview() {
               <span className="kpi-label">Remediation Cost</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.remediationCostByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.remediationCostByCurrency)}
               </strong>
 
               <small className="kpi-note">Estimated implementation cost</small>
@@ -188,7 +188,7 @@ function Overview() {
               <span className="kpi-label">Net Remediation Benefit</span>
 
               <strong className="kpi-value">
-                {formatCurrencyBuckets(overviewData.netRemediationBenefitByCurrency)}
+                {formatCurrencyBuckets(overviewResponse.data.netRemediationBenefitByCurrency)}
               </strong>
 
               <small className="kpi-note">Reduction minus cost, per currency</small>
@@ -202,7 +202,7 @@ function Overview() {
               <span className="kpi-label">Reduction / Cost Ratio</span>
 
               <strong className="kpi-value">
-                {formatRatioBuckets(overviewData.reductionCostRatioByCurrency)}
+                {formatRatioBuckets(overviewResponse.data.reductionCostRatioByCurrency)}
               </strong>
 
               <small className="kpi-note">Expected reduction per unit of cost</small>

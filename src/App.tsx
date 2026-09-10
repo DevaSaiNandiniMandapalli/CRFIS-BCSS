@@ -57,6 +57,7 @@ function App() {
   const [activePage, setActivePage] = useState('Overview')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchIndex, setSearchIndex] = useState(0)
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
@@ -72,6 +73,35 @@ function App() {
 
       if (event.key === 'Escape') {
         setSearchOpen(false)
+        return
+      }
+
+      if (!searchOpen) {
+        return
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSearchIndex((current) =>
+          filteredNavigation.length === 0
+            ? 0
+            : (current + 1) % filteredNavigation.length,
+        )
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSearchIndex((current) =>
+          filteredNavigation.length === 0
+            ? 0
+            : (current - 1 + filteredNavigation.length) %
+              filteredNavigation.length,
+        )
+      }
+
+      if (event.key === 'Enter' && filteredNavigation.length > 0) {
+        event.preventDefault()
+        openPageFromSearch(filteredNavigation[searchIndex])
       }
     }
 
@@ -88,6 +118,7 @@ function App() {
     setActivePage(page)
     setSearchOpen(false)
     setSearchQuery('')
+    setSearchIndex(0)
   }
   const pageTitle =
     activePage === 'Overview' ? 'Executive Overview' : activePage
@@ -120,7 +151,7 @@ function App() {
                 aria-current={isActive ? 'page' : undefined}
               >
                 <span className="nav-icon" aria-hidden="true">
-                  {isActive ? '◈' : '○'}
+                  {isActive ? '\u25C8' : '\u25CB'}
                 </span>
 
                 <span>{item}</span>
@@ -139,7 +170,7 @@ function App() {
         <header className="topbar">
           <div>
             <span className="eyebrow">
-              CYBER RISK FINANCIAL INTELLIGENCE
+              CYBER RISK FINANCIAL IMPACT SYSTEM
             </span>
 
             <h1>{pageTitle}</h1>
@@ -151,9 +182,9 @@ function App() {
               type="button"
               aria-label="Search CRFIS" onClick={() => setSearchOpen(true)}
             >
-              <span aria-hidden="true">⌕</span>
+              <span aria-hidden="true">&#x2315;</span>
               <span>Search</span>
-              <kbd>⌘ K</kbd>
+              <kbd>&#x2318; K</kbd>
             </button>
 
             <button
@@ -161,7 +192,7 @@ function App() {
               type="button"
               aria-label="Notifications"
             >
-              <span aria-hidden="true">◌</span>
+              <span aria-hidden="true">&#x25CC;</span>
             </button>
 
             <button
@@ -174,7 +205,7 @@ function App() {
               }
               onClick={() => setDarkMode((current) => !current)}
             >
-              <span aria-hidden="true">{darkMode ? '☀' : '◐'}</span>
+              <span aria-hidden="true">{darkMode ? '\u2600' : '\u25D0'}</span>
             </button>
 
             <div className="profile">
@@ -219,11 +250,11 @@ function App() {
 
           <footer>
             <span>
-              CRFIS â€¢ Cyber Risk Financial Impact System
+              CRFIS &bull; Cyber Risk Financial Impact System
             </span>
 
             <span>
-              BCSSL â€¢ From Information to Intelligence
+              BCSSL &bull; From Information to Intelligence
             </span>
           </footer>
         </div>
@@ -250,7 +281,7 @@ function App() {
                 aria-label="Close search"
                 onClick={() => setSearchOpen(false)}
               >
-                ×
+                &times;
               </button>
             </div>
 

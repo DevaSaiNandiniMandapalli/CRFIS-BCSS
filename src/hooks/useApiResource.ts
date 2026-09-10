@@ -49,7 +49,7 @@ export function useApiResource<T>(url: string): ApiResource<T> {
           throw new Error(message)
         }
 
-        return (body as { data: T }).data
+        return body as T
       })
       .then((data) => {
         if (!controller.signal.aborted) {
